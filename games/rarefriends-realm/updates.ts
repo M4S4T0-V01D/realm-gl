@@ -4,6 +4,13 @@
  */
 export type Update = { id: number; date: string; title: string; items: readonly string[] };
 export const UPDATES: readonly Update[] = [
+  { id: 83, date: "2026-10-06", title: "Realm-GL: roofs, shop fronts, people, trees and everything standing in the world", items: [
+    "Roofs are drawn on your graphics card now: gabled, hipped and pointed roofs in their shingles, gable ends in brick or timber, chimneys, flat roofs with their battlements, and the palace's keep. They still fade as you walk in under them.",
+    "So are the fronts: shops' striped awnings, and the columns, marble bands and pediments of the banks and halls of state.",
+    "Every piece of pixel art in the world goes to the card too: trees, rocks, plants and decorations, Friends, villagers and creatures, fires, carvings and the shadows at everyone's feet. Each stands in its own light and haze, and a wall in front of it hides it properly.",
+    "Roof shingles and wall bricks now show at every zoom, even all the way out.",
+    "Next up: the light and the shadows themselves, which will make the biggest difference to speed.",
+  ] },
   { id: 82, date: "2026-10-06", title: "Realm-GL: the ground and walls drawn on your graphics card", items: [
     "This is the WebGL build of the Realm, the same game and the same world, now being moved onto your graphics card a piece at a time. First come the ground and the walls of every building, castle, rampart and cliff, drawn with WebGL2 with a proper depth buffer.",
     "Grass, sand, snow, stone, paths and water keep their old look, with the tile edges and height lines on the ground. Water ripples and lava glows on the card now, and the day, night, torchlight and haze fall over it all just as before.",

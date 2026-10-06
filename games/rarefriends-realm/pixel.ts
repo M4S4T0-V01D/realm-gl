@@ -148,13 +148,24 @@ function scaledArt(art: HTMLCanvasElement, w: number, h: number): HTMLCanvasElem
   entry.copies.set(key, canvas);
   return canvas;
 }
+/**
+ * Where pixel art can go instead of a canvas (the GPU, with WebGL): given the canvas it was to be drawn on, the art, its
+ * box there and its alpha, it takes the sprite (true) or leaves it to be drawn as usual (false).
+ */
+export type SpriteSink = (ctx: CanvasRenderingContext2D, art: HTMLCanvasElement, x: number, y: number, w: number, h: number, alpha: number) => boolean;
+let sink: SpriteSink | null = null;
+export function sendSprites(to: SpriteSink | null) { sink = to; }
+/** Offer a sprite to the sink (see SpriteSink): true if it took it. */
+export function sinkSprite(ctx: CanvasRenderingContext2D, art: HTMLCanvasElement, x: number, y: number, w: number, h: number, alpha: number) { return !!sink && sink(ctx, art, x, y, w, h, alpha); }
 /** Draw pixel art with its bottom-centre on (x, y), `scale` screen pixels per art pixel. */
 export function drawPixels(ctx: CanvasRenderingContext2D, art: HTMLCanvasElement, x: number, y: number, scale: number, alpha = 1, anchorY = 1) {
   const w = art.width * scale, h = art.height * scale, dx = Math.round(x - w / 2), dy = Math.round(y - h * anchorY), dw = Math.round(w), dh = Math.round(h);
-  const smoothing = ctx.imageSmoothingEnabled;
-  ctx.imageSmoothingEnabled = false; ctx.globalAlpha = alpha;
-  ctx.drawImage(scaledArt(art, dw, dh), dx, dy, dw, dh);
-  ctx.globalAlpha = 1; ctx.imageSmoothingEnabled = smoothing;
+  if (!(sink && sink(ctx, art, dx, dy, dw, dh, alpha))) {
+    const smoothing = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false; ctx.globalAlpha = alpha;
+    ctx.drawImage(scaledArt(art, dw, dh), dx, dy, dw, dh);
+    ctx.globalAlpha = 1; ctx.imageSmoothingEnabled = smoothing;
+  }
   if (recording) recording.push({ art, x: dx, y: dy, w: dw, h: dh, alpha });
   return { x: x - w / 2, y: y - h * anchorY, w, h };
 }

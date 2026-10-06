@@ -20,7 +20,7 @@ import { drawPixels, pixelArt, shadeHex } from "./pixel.ts";
 import { CARVINGS, CARVING_REACH } from "./data.ts";
 import { TEX_PER_HEIGHT, TEX_PER_TILE, beginTextures, groundTexture, textureStats, shingleTexture, texturedQuad, texturedTriangle, wallTexture, PANE, type GroundStyle, type WallStyle } from "./textures.ts";
 import { campfireLogs, decorArt, fireArt, rockArt, treeArt , herbArt } from "./scenery.ts";
-import { beginSprites, recordSprites, noteSprite, replaySprites, stampSprites, type SpriteDraw } from "./pixel.ts";
+import { beginSprites, recordSprites, noteSprite, replaySprites, stampSprites, sendSprites, sinkSprite, type SpriteDraw } from "./pixel.ts";
 import { spellArt } from "./spellart.ts";
 import { SADDLE, mountArt, type MountView } from "./mountart.ts";
 import { petArt } from "./petart.ts";
@@ -219,9 +219,11 @@ export function friendRows(sprites: GenerationSprites, facing: Facing, walking: 
 /** Draw a mask so its feet sit on (x, y). `px` is screen pixels per sprite pixel. */
 function drawMask(ctx: CanvasRenderingContext2D, rows: Mask, x: number, y: number, px: number, ink = INK, mirror = false, alpha = 1) {
   const canvas = maskCanvas(rows, ink, mirror), w = canvas.width * px, h = canvas.height * px;
-  ctx.globalAlpha = alpha;
-  ctx.drawImage(canvas, Math.round(x - w / 2), Math.round(y - h + px), Math.round(w), Math.round(h));
-  ctx.globalAlpha = 1;
+  if (!sinkSprite(ctx, canvas, Math.round(x - w / 2), Math.round(y - h + px), Math.round(w), Math.round(h), alpha)) {
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(canvas, Math.round(x - w / 2), Math.round(y - h + px), Math.round(w), Math.round(h));
+    ctx.globalAlpha = 1;
+  }
   // (Noted like pixel art, so a Friend's light, haze and shadow are its silhouette laid again, not a whole redraw.)
   noteSprite(canvas, Math.round(x - w / 2), Math.round(y - h + px), Math.round(w), Math.round(h), alpha);
   return { x: x - w / 2, y: y - h + px, w, h };
@@ -240,6 +242,8 @@ function poly(ctx: CanvasRenderingContext2D, points: readonly (readonly [number,
   if (stroke && !bare) { ctx.strokeStyle = stroke; ctx.lineWidth = width; ctx.stroke(); }
 }
 function ellipse(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, fill: string | null, stroke: string | null = INK, width = 1) {
+  // (A plain filled ellipse, a shadow at someone's feet or a soft glow, goes to the GPU with the sprites when they do.)
+  if (!stroke && fill && spriteState.on && ctx === spriteState.layer && gpuEllipse(ctx, x, y, rx, ry, fill)) return;
   ctx.beginPath(); ctx.ellipse(x, y, Math.max(0.5, rx), Math.max(0.5, ry), 0, 0, Math.PI * 2);
   if (fill) { ctx.fillStyle = fill; ctx.fill(); }
   if (stroke && !bare) { ctx.strokeStyle = stroke; ctx.lineWidth = width; ctx.stroke(); }
@@ -295,17 +299,16 @@ function rgbOf(color: string): readonly number[] {
  * textures (the same pixel art the canvas would have drawn) and colours; and its outline cut out of the canvas layer so
  * the GPU's box shows through, anything drawn before it (behind it) hidden. Lit windows still glow at night.
  */
-function captureBox(ctx: CanvasRenderingContext2D, camera: Camera, x: number, y: number, w: number, d: number, h: number, top: string, left: string, right: string, lift: number, pattern: WallStyle | null) {
+function captureBox(ctx: CanvasRenderingContext2D, camera: Camera, x: number, y: number, w: number, d: number, h: number, top: string, left: string, right: string, lift: number, pattern: WallStyle | null, stroke: string | null = INK) {
   const gl = capturing!;
   let rx = x, ry = y, rlift = lift;
   if (y >= FLOOR_Y - 0.5 && ground) { const floor = floorAt(ground, x, y); if (floor) { rx -= floor.dx; ry -= floor.dy; rlift += floor.level * STOREY; } }
   const variant = Math.abs(Math.floor(x * 7 + y * 13)) % 4;
   const face = (fill: string) => pattern && fill.startsWith("#") ? gl.wallLayers.layer(wallTexture(pattern, fill, variant)) : -1;
   const lid = pattern === "cap" && top.startsWith("#") ? gl.wallLayers.layer(wallTexture("cap", top, variant)) : -1;
-  gl.addBox(rx, ry, w, d, rlift, h, face(left), face(right), lid, rgbOf(top), rgbOf(left), rgbOf(right));
-  const hull = boxHull(camera, x, y, w, d, h, lift);
-  ctx.save(); ctx.globalCompositeOperation = "destination-out"; ctx.globalAlpha = 1; ctx.fillStyle = "#000";
-  ctx.beginPath(); hull.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.closePath(); ctx.fill(); ctx.restore();
+  const ink = !stroke ? 0 : stroke === INK ? 1 : (rgbaOf(stroke)[3] ?? 1);
+  gl.addBox(rx, ry, w, d, rlift, h, face(left), face(right), lid, rgbOf(top), rgbOf(left), rgbOf(right), ink);
+  punch(ctx, boxHull(camera, x, y, w, d, h, lift));
   // Windows lit from inside, where their glass lands on screen (for the light pass, as the canvas renderer does).
   if (!bare && (pattern === "window_lit" || pattern === "timber_window_lit")) {
     const x0 = x - w / 2, x1 = x + w / 2, y0 = y - d / 2, y1 = y + d / 2;
@@ -365,13 +368,136 @@ function groundChunks(glr: RealmGL, game: Game, x0: number, y0: number, x1: numb
   return keys;
 }
 /** Cut a polygon out of the canvas layer (where the GPU's ground shows through). */
-function punch(ctx: CanvasRenderingContext2D, points: readonly (readonly [number, number])[]) {
-  ctx.save(); ctx.globalCompositeOperation = "destination-out"; ctx.globalAlpha = 1; ctx.fillStyle = "#000";
+function punch(ctx: CanvasRenderingContext2D, points: readonly (readonly [number, number])[], alpha = 1) {
+  // (While the frame's things are drawn, only where there's something on the layer under it to cut.)
+  if (spriteState.loop && !spriteState.touched) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [px, py] of points) { if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py; }
+    if (!usedIn(x0, y0, x1, y1)) return;
+  }
+  spriteState.muted = true;
+  ctx.save(); ctx.globalCompositeOperation = "destination-out"; ctx.globalAlpha = alpha; ctx.fillStyle = "#000";
   ctx.beginPath(); points.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.closePath(); ctx.fill(); ctx.restore();
+  spriteState.muted = false;
+}
+
+// ---------- The GPU's sprites ----------
+/**
+ * While the frame's things are drawn with WebGL: whether a sprite drawn now goes to the GPU (`on`: the thing being drawn
+ * stands somewhere), where its feet are (screen y, depth), its light and how clear of the haze it is, and whether it
+ * lies flat; and whether the thing has drawn anything on the canvas layer itself (`touched`) or sent anything to the GPU
+ * (`sent`).
+ */
+const spriteState = {
+  glr: null as RealmGL | null, layer: null as CanvasRenderingContext2D | null, scale: 1, loop: false, on: false, muted: false,
+  footY: 0, footDepth: 0, light: [1, 1, 1] as readonly number[], clear: 1, flat: false, touched: false, sent: false,
+};
+/**
+ * Where the canvas layer has something drawn on it already this frame, in 32 px cells: a sprite landing on any of it
+ * cuts its silhouette out of the layer (it stands in front), and only then; most sprites land on bare layer.
+ */
+const CELL = 32, CELL_COLS = 32, CELL_ROWS = 22, layerUsed = new Uint8Array(CELL_COLS * CELL_ROWS);
+function cellsOf(x0: number, y0: number, x1: number, y1: number) {
+  return [Math.max(0, Math.floor(x0 / CELL)), Math.max(0, Math.floor(y0 / CELL)), Math.min(CELL_COLS - 1, Math.floor(x1 / CELL)), Math.min(CELL_ROWS - 1, Math.floor(y1 / CELL))];
+}
+function markUsed(x0: number, y0: number, x1: number, y1: number) {
+  const [c0, r0, c1, r1] = cellsOf(x0, y0, x1, y1);
+  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) layerUsed[r * CELL_COLS + c] = 1;
+}
+function usedIn(x0: number, y0: number, x1: number, y1: number) {
+  const [c0, r0, c1, r1] = cellsOf(x0, y0, x1, y1);
+  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) if (layerUsed[r * CELL_COLS + c]) return true;
+  return false;
+}
+/** Note any drawing on the layer while things are drawn (cutting holes in it doesn't count). */
+const watched = new WeakSet<CanvasRenderingContext2D>();
+function watchLayer(ctx: CanvasRenderingContext2D) {
+  if (watched.has(ctx)) return;
+  watched.add(ctx);
+  const methods = ctx as unknown as Record<string, (...args: unknown[]) => unknown>;
+  for (const name of ["fill", "stroke", "fillRect", "strokeRect", "drawImage", "fillText", "strokeText", "putImageData"]) {
+    const original = methods[name];
+    methods[name] = function (this: CanvasRenderingContext2D, ...args: unknown[]) { if (spriteState.loop && !spriteState.muted) spriteState.touched = true; return original.apply(this, args); };
+  }
+}
+const WHITE: readonly number[] = [1, 1, 1, 1];
+/** A sprite for the GPU, if it takes it: placed by the canvas's own transform, and cut out of the layer if there's drawing under it. */
+function gpuSprite(ctx: CanvasRenderingContext2D, art: HTMLCanvasElement, x: number, y: number, w: number, h: number, alpha: number, tint = WHITE, flat = spriteState.flat): boolean {
+  const s = spriteState;
+  if (!s.on || ctx !== s.layer || !s.glr || ctx.globalCompositeOperation !== "source-over") return false;
+  if (alpha <= 0 || tint[3] <= 0) return true;
+  const m = ctx.getTransform(), k = 1 / s.scale, a = m.a * k, b = m.b * k, c = m.c * k, d = m.d * k, e = m.e * k, f = m.f * k;
+  const x0 = a * x + c * y + e, y0 = b * x + d * y + f, x1 = x0 + a * w, y1 = y0 + b * w, x3 = x0 + c * h, y3 = y0 + d * h;
+  const color = alpha === 1 && tint === WHITE ? WHITE : [tint[0], tint[1], tint[2], tint[3] * alpha];
+  if (!s.glr.addSprite(art, x0, y0, x1, y1, x3, y3, color, s.light, s.clear, s.footY, s.footDepth, flat)) return false;
+  const left = Math.min(x0, x1, x3, x1 + x3 - x0), right = Math.max(x0, x1, x3, x1 + x3 - x0), top = Math.min(y0, y1, y3, y1 + y3 - y0), bottom = Math.max(y0, y1, y3, y1 + y3 - y0);
+  if (s.touched || usedIn(left, top, right, bottom)) {
+    s.muted = true;
+    ctx.save(); ctx.globalCompositeOperation = "destination-out"; ctx.globalAlpha = Math.min(1, color[3]); ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(art, x, y, w, h); ctx.restore();
+    s.muted = false;
+  }
+  s.sent = true;
+  return true;
+}
+/** A plain ellipse as a sprite: a white one tinted (flat on the ground if it's at the feet). */
+let ellipseArt: HTMLCanvasElement | null = null;
+const rgbaCache = new Map<string, readonly number[]>();
+/** A CSS colour (#hex or rgb()/rgba()) as r, g, b, alpha from 0 to 1. */
+function rgbaOf(color: string): readonly number[] {
+  let known = rgbaCache.get(color);
+  if (!known) {
+    if (color.startsWith("#")) known = [...rgbOf(color), 1];
+    else { const m = color.match(/[\d.]+/g) ?? ["0", "0", "0", "1"]; known = [Number(m[0]) / 255, Number(m[1]) / 255, Number(m[2]) / 255, m[3] === undefined ? 1 : Number(m[3])]; }
+    if (rgbaCache.size > 500) rgbaCache.clear();
+    rgbaCache.set(color, known);
+  }
+  return known;
+}
+function gpuEllipse(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, fill: string): boolean {
+  if (!ellipseArt) {
+    ellipseArt = document.createElement("canvas"); ellipseArt.width = 64; ellipseArt.height = 32;
+    const c = ellipseArt.getContext("2d")!; c.fillStyle = "#fff"; c.beginPath(); c.ellipse(32, 16, 32, 16, 0, 0, Math.PI * 2); c.fill();
+  }
+  return gpuSprite(ctx, ellipseArt, x - rx, y - ry, rx * 2, ry * 2, ctx.globalAlpha, rgbaOf(fill), spriteState.flat || Math.abs(y - spriteState.footY) < ry * 1.5 + 4);
+}
+sendSprites((ctx, art, x, y, w, h, alpha) => gpuSprite(ctx, art, x, y, w, h, alpha));
+// ---------- The GPU's roofs ----------
+/** With WebGL, the frame's roofs are meshes on the GPU (set per frame), cutting themselves out of this layer. */
+let roofGL: RealmGL | null = null, roofLayer: CanvasRenderingContext2D | null = null;
+const QUAD_EDGES = [[0, 1, 0, 1], [1, 0, 0, 1], [1, 0, 1, 0], [0, 1, 1, 0]], TRI_EDGES = [[1, 0, 0, 1], [0, 1, 0, 1], [0, 0, 1, 1]];
+const faceVerts: number[] = [];
+const NO_UV = (): readonly [number, number] => [0, 0];
+/**
+ * One face of a roof for the GPU (three or four corners, going round), in a colour or a texture (`layer`, with `uv`
+ * giving each corner's place on it in texture pixels), and cut out of the layer where it lands.
+ */
+function gpuFace(ctx: CanvasRenderingContext2D, camera: Camera, points: readonly RoofVertex[], fill: string, alpha: number, layer: number, uv: (p: RoofVertex) => readonly [number, number] = NO_UV, inked = 15) {
+  const glr = roofGL!, [r, g, b] = rgbOf(fill), quad = points.length === 4, edges = quad ? QUAD_EDGES : TRI_EDGES;
+  // (Which edges are inked, edge i running from corner i to the next: each edge is where one of the distances is 0.)
+  const off = quad ? [inked & 8 ? 0 : 1, inked & 2 ? 0 : 1, inked & 1 ? 0 : 1, inked & 4 ? 0 : 1] : [inked & 2 ? 0 : 1, inked & 4 ? 0 : 1, inked & 1 ? 0 : 1, 1];
+  const vertex = (i: number) => { const p = points[i], [u, v] = uv(p), e = edges[i]; faceVerts.push(p[0], p[1], p[2], u, v, layer, r, g, b, alpha, Math.max(e[0], off[0]), Math.max(e[1], off[1]), Math.max(e[2], off[2]), Math.max(e[3], off[3])); };
+  for (const [i, j, k] of quad ? [[0, 1, 2], [0, 2, 3]] : [[0, 1, 2]]) { faceVerts.length = 0; vertex(i); vertex(j); vertex(k); glr.addTriangle(faceVerts, 0, alpha < 0.98); }
+  punch(ctx, points.map(p => { const q = toScreen(camera, p[0], p[1], p[2]); return [q.x, q.y] as const; }), alpha);
+}
+/** Texture pixels along the edge a → b (from a), for laying a texture's columns along an eave. */
+const alongEdge = (a: RoofVertex, b: RoofVertex) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return (p: RoofVertex) => ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l * TEX_PER_TILE; };
+/** A face shingled (or walled) from its eave a → b, `rows` texture rows from the top (height `top`) down to `base`. */
+function gpuSlope(ctx: CanvasRenderingContext2D, camera: Camera, points: readonly RoofVertex[], texture: HTMLCanvasElement, fill: string, alpha: number, a: RoofVertex, b: RoofVertex, rows: number, top: number, base: number) {
+  const u = alongEdge(a, b), span = Math.max(1e-3, top - base);
+  gpuFace(ctx, camera, points, fill, alpha, roofGL!.wallLayers.layer(texture), p => [u(p), rows * (top - p[2]) / span]);
+}
+const roofShingles = (fill: string) => shingleTexture(fill, 16, 24);
+
+/** A world point's depth as the GPU's camera has it (gl.ts `project`), upstairs points moved to their real place. */
+function glDepth(camera: Camera, x: number, y: number, lift = 0) {
+  if (y >= FLOOR_Y - 0.5 && ground) { const floor = floorAt(ground, x, y); if (floor) { x -= floor.dx; y -= floor.dy; lift += floor.level * STOREY; } }
+  const { rx, ry } = rotate(camera, x - camera.x, y - camera.y), h = lift + groundAt(x, y) - (camera.base ?? 0);
+  return (rx + ry) * 32 * Math.sqrt(Math.max(0, 1 - camera.pitch * camera.pitch)) + h * camera.pitch / 0.8660254;
 }
 /** An isometric box on a tile footprint (w, d in tiles) and height h (world px). With a `pattern`, its faces are pixel-art textured. */
 function box(ctx: CanvasRenderingContext2D, camera: Camera, x: number, y: number, w: number, d: number, h: number, top: string, left: string, right: string, lift = 0, stroke: string | null = INK, pattern: WallStyle | null = null, hidden?: (nx: number, ny: number) => boolean) {
-  if (capturing) { captureBox(ctx, camera, x, y, w, d, h, top, left, right, lift, pattern); return; }
+  if (capturing) { captureBox(ctx, camera, x, y, w, d, h, top, left, right, lift, pattern, stroke); return; }
   const p = (px: number, py: number, z: number) => { const s = toScreen(camera, px, py, z); return [s.x, s.y] as const; };
   const q = (px: number, py: number, z: number) => toScreen(camera, px, py, z);
   const x0 = x - w / 2, x1 = x + w / 2, y0 = y - d / 2, y1 = y + d / 2, variant = Math.abs(Math.floor(x * 7 + y * 13)) % 4;
@@ -684,7 +810,7 @@ export function addPrint(x: number, y: number, hx: number, hy: number, hoof: boo
   if (prints.length > 160) prints.shift();
   prints.push({ x, y, hx, hy, at: performance.now(), hoof, snow });
 }
-function drawPrints(ctx: CanvasRenderingContext2D, camera: Camera, now: number) {
+function drawPrints(ctx: CanvasRenderingContext2D, camera: Camera, now: number, mark?: (x0: number, y0: number, x1: number, y1: number) => void) {
   while (prints.length && now - prints[0].at > PRINT_MS) prints.shift();
   const z = camera.zoom;
   for (const print of prints) {
@@ -695,6 +821,7 @@ function drawPrints(ctx: CanvasRenderingContext2D, camera: Camera, now: number) 
     const marks: [number, number][] = print.hoof ? [[0.14, 0.18], [-0.14, 0.02], [0.14, -0.14], [-0.14, -0.3]] : [[0.12, 0.1], [-0.12, -0.12]];
     for (const [side, ahead] of marks) {
       const p = toScreen(camera, print.x + sx * side + fx * ahead, print.y + sy * side + fy * ahead);
+      mark?.(p.x - 5 * z, p.y - 5 * z, p.x + 5 * z, p.y + 3 * z);
       if (print.hoof) { ctx.strokeStyle = color; ctx.lineWidth = 1.6 * z; ctx.beginPath(); ctx.ellipse(p.x, p.y, 3.2 * z, 1.8 * z, 0, Math.PI * 0.1, Math.PI * 0.9, true); ctx.stroke(); }
       else { ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(p.x, p.y, 3.4 * z, 1.9 * z, 0, 0, Math.PI * 2); ctx.fill(); for (const toe of [-2.6, 0, 2.6]) ctx.fillRect(p.x + toe * z - 0.8 * z, p.y - 3.4 * z, 1.6 * z, 1.4 * z); }
     }
@@ -1765,6 +1892,15 @@ function drawKeepRoof(ctx: CanvasRenderingContext2D, camera: Camera, building: B
   const inner: RoofVertex[] = [[cx - half, cy - half, g.top], [cx + half, cy - half, g.top], [cx + half, cy + half, g.top], [cx - half, cy + half, g.top]];
   const ring = [g.A, g.B, g.C, g.D];
   const slope = (outer: RoofVertex[], top: RoofVertex[], color: string) => {
+    if (roofGL && ctx === roofLayer) {
+      for (const [i, a] of outer.entries()) {
+        const b = outer[(i + 1) % outer.length], { rx, ry } = rotate(camera, a[1] - b[1], b[0] - a[0]), fill = shadeHex(color, rx - ry < 0 ? 0.06 : -0.08);
+        const run = Math.hypot((a[0] + b[0] - top[(i + 1) % top.length][0] - top[i][0]) / 2, (a[1] + b[1] - top[(i + 1) % top.length][1] - top[i][1]) / 2);
+        const slant = Math.hypot(run * TEX_PER_TILE, (top[i][2] - a[2]) * TEX_PER_HEIGHT), points = top[i] === top[(i + 1) % top.length] ? [a, b, top[i]] : [a, b, top[(i + 1) % top.length], top[i]];
+        gpuSlope(ctx, camera, points, roofShingles(fill), fill, ctx.globalAlpha, a, b, slant, top[i][2], a[2]);
+      }
+      return;
+    }
     const faces = outer.map((a, i) => {
       const b = outer[(i + 1) % outer.length], { rx, ry } = rotate(camera, a[1] - b[1], b[0] - a[0]);
       return { points: [a, b, top[(i + 1) % top.length], top[i]], fill: shadeHex(color, rx - ry < 0 ? 0.06 : -0.08) };
@@ -1838,6 +1974,12 @@ function flatRoofTile(ctx: CanvasRenderingContext2D, camera: Camera, building: B
   ctx.globalAlpha = 1;
 }
 function drawRoof(ctx: CanvasRenderingContext2D, camera: Camera, building: Building, alpha: number, now: number, reduced: boolean) {
+  // (On the GPU, a whole roof's boxes, its chimney, a keep's storeys, go there too.)
+  capturing = roofGL && ctx === roofLayer && alpha >= 0.98 ? roofGL : null;
+  drawRoofParts(ctx, camera, building, alpha, now, reduced);
+  capturing = null; ctx.globalAlpha = 1;
+}
+function drawRoofParts(ctx: CanvasRenderingContext2D, camera: Camera, building: Building, alpha: number, now: number, reduced: boolean) {
   const g = roofGeometry(building), P = ([x, y, h]: RoofVertex) => { const s = toScreen(camera, x, y, h); return [s.x, s.y] as const; };
   ctx.globalAlpha = alpha;
   if (building.roof === "flat") {
@@ -1867,7 +2009,8 @@ function drawRoof(ctx: CanvasRenderingContext2D, camera: Camera, building: Build
     const centre = (points: RoofVertex[]) => depthOf(camera, (points[0][0] + points[1][0]) / 2, (points[0][1] + points[1][1]) / 2);
     faces.sort((a, b) => centre(a.points) - centre(b.points));
     const side = Math.hypot(ring[1][0] - ring[0][0], ring[1][1] - ring[0][1]), slant = Math.hypot((g.X1 - g.X0) * TEX_PER_TILE / 2, (g.top - g.base) * TEX_PER_HEIGHT);
-    for (const face of faces) {
+    for (const face of faces) if (roofGL && ctx === roofLayer) gpuSlope(ctx, camera, face.points, roofShingles(face.fill), face.fill, alpha, face.points[0], face.points[1], slant, g.top, g.base);
+    if (!(roofGL && ctx === roofLayer)) for (const face of faces) {
       const [a, b, c] = face.points.map(P).map(([x, y]) => ({ x, y }));
       if (texturesOn) texturedTriangle(ctx, shingleTexture(face.fill, Math.round(side * TEX_PER_TILE), Math.round(slant)), a, b, c, side * TEX_PER_TILE, slant);
       poly(ctx, face.points.map(P), texturesOn ? null : face.fill, INK, 1.2);
@@ -1906,6 +2049,17 @@ function drawRoof(ctx: CanvasRenderingContext2D, camera: Camera, building: Build
   const centre = (points: RoofVertex[]) => depthOf(camera, points.reduce((sum, v) => sum + v[0], 0) / points.length, points.reduce((sum, v) => sum + v[1], 0) / points.length);
   faces.sort((a, b) => centre(a.points) - centre(b.points));
   const at = (v: RoofVertex) => { const [x, y] = P(v); return { x, y }; };
+  if (roofGL && ctx === roofLayer) {
+    // On the GPU: every face at once (its depth sorts them), shingled, the ends shingled or walled; then the chimney.
+    for (const face of faces) {
+      if (face.slope) { const [e0, e1, , r0] = face.slope, fill = shadeHex(color, rotateLit(camera, e0, r0) ? 0.06 : -0.08); gpuSlope(ctx, camera, face.points, roofShingles(fill), fill, alpha, e0, e1, slopeRows, g.top, g.base); }
+      else if (building.hip) gpuSlope(ctx, camera, face.points, roofShingles(face.fill), face.fill, alpha, face.points[0], face.points[1], slopeRows, g.top, g.base);
+      else { const fill = face.fill.startsWith("#") ? face.fill : gable; gpuSlope(ctx, camera, face.points, wallTexture(building.walls === "stone" ? "brick" : building.walls === "plank" ? "plank" : "timber", fill), fill, alpha, face.points[0], face.points[1], (g.top - g.base) * TEX_PER_HEIGHT, g.top, g.base); }
+    }
+    slopesDrawn = 2; ridgeDrawn = true; chimney();
+    ctx.globalAlpha = 1;
+    return;
+  }
   for (const face of faces) {
     if (face.slope) slopesDrawn++;
     if (!texturesOn) { poly(ctx, face.points.map(P), face.fill, INK, 1.2); if (face.chimney) chimney(); continue; }
@@ -2015,6 +2169,10 @@ type Drawable = {
   glows?: boolean;
   /** Set by the frame's draw: off screen (skipped), its screen box, the sprites it laid, and the glow it gave off. */
   skip?: boolean; box?: [number, number, number, number]; sprites?: SpriteDraw[] | null; emitted?: [number, number][][] | null; tag?: string;
+  /** It lies flat on the ground (its sprites, on the GPU, lie flat too). */
+  flat?: boolean;
+  /** Set by the frame's draw, with WebGL: it sent sprites to the GPU; it drew on the canvas layer itself. */
+  gpu?: boolean; touched?: boolean;
 };
 let lastHits: Hit[] = [];
 /** Picks under a point, topmost first, from the last frame. */
@@ -2071,7 +2229,9 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
   // Visible tile bounds. Low camera angles see a long way: draw out to DRAW_DISTANCE and let the haze take the rest.
   const [x0, y0, x1, y1] = tileRange(camera, reach);
   const glChunks = glr ? groundChunks(glr, game, x0, y0, x1, y1) : [];
-  if (glr) glr.clearBoxes();
+  if (glr) { glr.clearBoxes(); glr.clearSprites(); watchLayer(ctx); layerUsed.fill(0); }
+  Object.assign(spriteState, { glr, layer: glr ? ctx : null, scale: glr ? ctx.getTransform().a : 1, loop: false, on: false });
+  roofGL = glr; roofLayer = glr ? ctx : null;
   lap("setup"); if (!glr) drawGround(ctx, scene, x0, y0, x1, y1, reach); lap("terrain"); RENDER_PROFILE.groundQuads = textureStats.frame;
   // The sky's light for the time of day and the weather; the sun's share of it decides how dark shadows are.
   const weather = scene.weather ?? null, sky = gloomSky(skyFor(scene.time, weather, underground), gloomAt(world, game.player.x, game.player.y)), lit = true;
@@ -2079,7 +2239,8 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
   if ((seenVersion.get(world) ?? 0) !== (game.worldVersion ?? 0)) { seenVersion.set(world, game.worldVersion ?? 0); roomLightCache.delete(world); resetLighting(world); }
   const rooms = roomLights(world);
   const sunShare = (sky.sun[0] + sky.sun[1] + sky.sun[2]) / Math.max(0.01, sky.sun[0] + sky.sun[1] + sky.sun[2] + sky.ambient[0] + sky.ambient[1] + sky.ambient[2]);
-  if (!low) { ctx.globalAlpha = Math.min(1, sunShare * 2.2); drawCloudShadows(ctx, project, camera, now, z, underground, scene.reducedMotion); ctx.globalAlpha = 1; drawPrints(ctx, camera, now); }
+  // (With WebGL the clouds' shadows fall in the light instead, below: the GPU's sprites stand on this layer's bare patches.)
+  if (!low) { if (!glr) { ctx.globalAlpha = Math.min(1, sunShare * 2.2); drawCloudShadows(ctx, project, camera, now, z, underground, scene.reducedMotion); ctx.globalAlpha = 1; } drawPrints(ctx, camera, now, glr ? markUsed : undefined); }
   const hits: Hit[] = [], drawables: Drawable[] = [], lights: PointLight[] = [], blockers: [number, number, number][] = [];
   // Lamps, torches, fires and spells are point lights in the world (upstairs, at the real place): `lift` is the flame's
   // height, `radius` its reach (screen px at zoom 1). By day they hardly show.
@@ -2189,7 +2350,7 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
     const d = fountainMaster ? depth(x + 0.5, y + 0.5) + 0.3 : depth(x, y) + (object.kind === "wheat" || object.kind === "spot" ? -0.4 : 0);
     const flat = object.kind === "spot" || (object.kind === "decor" && FLAT_DECOR.has(object.decor!));
     const sprite = object.kind === "tree" || object.kind === "rock" || (object.kind === "decor" && object.decor !== "banner");
-    drawables.push({ depth: d, at: { x, y }, cast: !flat, sprite, scenery: object.kind === "tree" || object.kind === "rock" || object.kind === "decor" || object.kind === "spot", size: object.decor === "windmill" ? [320, 140, 40] : object.kind === "tree" ? [260, 110, 40] : [200, 110, 40], draw: () => {
+    drawables.push({ depth: d, at: { x, y }, cast: !flat, flat, sprite, scenery: object.kind === "tree" || object.kind === "rock" || object.kind === "decor" || object.kind === "spot", size: object.decor === "windmill" ? [320, 140, 40] : object.kind === "tree" ? [260, 110, 40] : [200, 110, 40], draw: () => {
       let rect: { x: number; y: number; w: number; h: number };
       const tall = object.kind === "tree" || (object.kind === "decor" && (["pine", "windmill", "palm", "pillar", "tent", "crypt", "obelisk", "canopy", "wise_friend", "god_dusk"].includes(object.decor!) || (object.decor === "ruin_wall" && (object.height ?? 0) > 34)));
       // Anything tall in front of your Friend that covers it on screen turns see-through (works at any angle and zoom).
@@ -2287,7 +2448,7 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
   for (const fire of game.fires) {
     if (!shown(fire.x, fire.y)) continue;
     glow(fire.x, fire.y, 8, 160, "#f08a3c", 1, true);
-    drawables.push({ depth: depth(fire.x, fire.y), draw: () => {
+    drawables.push({ depth: depth(fire.x, fire.y), at: { x: fire.x, y: fire.y, h: 10 }, light: [1, 1, 1], size: [60, 40, 20], draw: () => {
       const s = toScreen(camera, fire.x, fire.y), frame = scene.reducedMotion ? 0 : Math.floor(now / 110 + fire.uid * 3) % 8;
       // A small fire sitting in a pile of logs.
       ellipse(ctx, s.x, s.y - 6 * z, 16 * z, 11 * z, "rgba(240,170,110,0.16)", null);
@@ -2413,11 +2574,12 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
         const covered = (nx: number, ny: number) => own(x + nx, y + ny);
         // (A box: lit by its outline, slab and coping; the merlons on top take the light behind them.)
         drawables.push({ depth: depth(x, y) + 0.45, at: { x, y, h: (building.storeys ?? 1) * WALL_H + 8 }, size: [(building.storeys ?? 1) * WALL_H + 40, 52, 30], exact: true,
-          hull: () => alphaNow > 0.95 ? boxHull(camera, x, y, 1, 1, edge ? 9 : 5, (building.storeys ?? 1) * WALL_H) : null, draw: () => flatRoofTile(ctx, camera, building, x, y, edge, alphaNow, covered) });
+          hull: () => alphaNow > 0.95 ? boxHull(camera, x, y, 1, 1, edge ? 9 : 5, (building.storeys ?? 1) * WALL_H) : null,
+          draw: () => { capturing = glr && alphaNow > 0.95 && ctx === target ? glr : null; flatRoofTile(ctx, camera, building, x, y, edge, alphaNow, covered); capturing = null; } });
       }
       return;
     }
-    drawables.push({ depth: front, at: { x: (building.x0 + building.x1) / 2, y: (building.y0 + building.y1) / 2, h: (building.storeys ?? 1) * WALL_H + 24 }, rect: () => roofRect(building),
+    drawables.push({ depth: front, at: { x: (building.x0 + building.x1) / 2, y: (building.y0 + building.y1) / 2, h: (building.storeys ?? 1) * WALL_H + 24 }, rect: () => roofRect(building), exact: !!glr, tag: "roof",
       hull: () => (roofAlpha.get(index) ?? 0) > 0.95 ? roofHull(camera, building) : null, draw: () => { const next = fade(); if (next > 0.02) drawRoof(ctx, camera, building, next, now, scene.reducedMotion); } });
   });
   // ---------- Fronts: shops' awnings and signs, inns' signs, banks' and halls' columns and pediments ----------
@@ -2442,6 +2604,17 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
     if (building.facade === "shop") drawables.push({ depth: depth(ax, ay) + 0.05, at: { x: ax, y: ay, h: 34 }, size: [70, 80, 30], draw: () => {
       const HT = WALL_H * 0.95, HB = WALL_H * 0.6, D = 0.72, n = Math.max(3, Math.round((hi - lo) / 0.36));
       ctx.globalAlpha = Math.hypot(pp.x - ax, pp.y - ay) < 1.6 ? 0.4 : 1;
+      if (glr && ctx === target) {
+        // On the GPU: the cheeks, the stripes (inked round the awning's outside only) and the scallops.
+        const fade = ctx.globalAlpha; ctx.globalAlpha = 1;
+        for (const a of [lo, hi]) gpuFace(ctx, camera, [pt(a, 0, HT), pt(a, D, HB), pt(a, 0, HB)], shadeHex(palette[0], -0.18), fade, -1);
+        for (let i = 0; i < n; i++) {
+          const a0 = lo + (hi - lo) * i / n, a1 = lo + (hi - lo) * (i + 1) / n, fill = palette[i % 2];
+          gpuFace(ctx, camera, [pt(a0, 0, HT), pt(a1, 0, HT), pt(a1, D, HB), pt(a0, D, HB)], fill, fade, -1, NO_UV, 1 | 4 | (i === n - 1 ? 2 : 0) | (i === 0 ? 8 : 0));
+          gpuFace(ctx, camera, [pt(a0, D, HB), pt(a1, D, HB), pt((a0 + a1) / 2, D, HB - 5)], shadeHex(fill, -0.1), fade, -1, NO_UV, 0);
+        }
+        return;
+      }
       // The cheeks at the ends, then the stripes, then the scalloped valance along the front.
       for (const a of [lo, hi]) poly(ctx, [P(pt(a, 0, HT)), P(pt(a, D, HB)), P(pt(a, 0, HB))], shadeHex(palette[0], -0.18), INK, 1);
       for (let i = 0; i < n; i++) {
@@ -2489,10 +2662,12 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
     for (let a = Math.ceil(min + 0.5) + 0.5; a <= max - 1; a++) {
       if (a > door.lo && a < door.hi) continue;
       const [cx, cy] = alongX ? [a, face + ny * 0.3] : [face + nx * 0.3, a];
-      drawables.push({ depth: depth(cx, cy), at: { x: cx, y: cy, h: H / 2 }, size: [H + 30, 30, 20], draw: () => {
+      drawables.push({ depth: depth(cx, cy), at: { x: cx, y: cy, h: H / 2 }, size: [H + 30, 30, 20], exact: !!glr, hull: glr ? () => boxHull(camera, cx, cy, 0.42, 0.42, H) : undefined, draw: () => {
+        capturing = glr && ctx === target ? glr : null;
         box(ctx, camera, cx, cy, 0.4, 0.4, 5, ...marble, 0, INK, null);
         box(ctx, camera, cx, cy, 0.26, 0.26, H - 10, ...marble, 5, INK, null);
         box(ctx, camera, cx, cy, 0.42, 0.42, 5, ...marble, H - 5, INK, null);
+        capturing = null;
       } });
     }
     const roofFront = Math.max(depth(building.x0, building.y0), depth(building.x1, building.y0), depth(building.x0, building.y1), depth(building.x1, building.y1)) + 0.5;
@@ -2503,11 +2678,20 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
       const E = 7, rise = Math.min(42, 10 + length * 2.4), base = H + E;
       // The entablature: a band of marble the length of the front, then the pediment's triangle and its tympanum.
       const [bx, by] = alongX ? [mid, face + ny * 0.3] : [face + nx * 0.3, mid];
-      box(ctx, camera, bx, by, alongX ? length : 0.6, alongX ? 0.6 : length, E, ...marble, H, INK, null);
       const left = P(pt(min + 0.05, 0.6, base)), right = P(pt(max - 0.05, 0.6, base)), apex = P(pt(mid, 0.6, base + rise));
-      poly(ctx, [left, right, apex], marble[1], INK, 1.4);
-      const inset = (p: readonly [number, number], k: number) => [p[0] + ((left[0] + right[0] + apex[0]) / 3 - p[0]) * k, p[1] + ((left[1] + right[1] + apex[1]) / 3 - p[1]) * k] as [number, number];
-      poly(ctx, [inset(left, 0.22), inset(right, 0.22), inset(apex, 0.3)], marble[2], "rgba(22,22,22,0.4)", 1);
+      if (glr && ctx === target) {
+        // On the GPU: the band of marble, the pediment and its tympanum (just in front of it).
+        capturing = glr; box(ctx, camera, bx, by, alongX ? length : 0.6, alongX ? 0.6 : length, E, ...marble, H, INK, null); capturing = null;
+        const tri = [pt(min + 0.05, 0.6, base), pt(max - 0.05, 0.6, base), pt(mid, 0.6, base + rise)], c3 = tri.reduce((sum, v) => [sum[0] + v[0] / 3, sum[1] + v[1] / 3, sum[2] + v[2] / 3], [0, 0, 0]);
+        const towards = (v: RoofVertex, k: number): RoofVertex => [v[0] + (c3[0] - v[0]) * k + nx * 0.02, v[1] + (c3[1] - v[1]) * k + ny * 0.02, v[2] + (c3[2] - v[2]) * k];
+        gpuFace(ctx, camera, tri, marble[1], 1, -1);
+        gpuFace(ctx, camera, [towards(tri[0], 0.22), towards(tri[1], 0.22), towards(tri[2], 0.3)], marble[2], 1, -1, NO_UV, 0);
+      } else {
+        box(ctx, camera, bx, by, alongX ? length : 0.6, alongX ? 0.6 : length, E, ...marble, H, INK, null);
+        poly(ctx, [left, right, apex], marble[1], INK, 1.4);
+        const inset = (p: readonly [number, number], k: number) => [p[0] + ((left[0] + right[0] + apex[0]) / 3 - p[0]) * k, p[1] + ((left[1] + right[1] + apex[1]) / 3 - p[1]) * k] as [number, number];
+        poly(ctx, [inset(left, 0.22), inset(right, 0.22), inset(apex, 0.3)], marble[2], "rgba(22,22,22,0.4)", 1);
+      }
       const cxs = (left[0] + right[0] + apex[0]) / 3, cys = (left[1] + right[1] + apex[1]) / 3 + 2 * z, r = Math.min(9, rise * 0.22) * z;
       if (building.facade === "bank") {
         ellipse(ctx, cxs, cys, r, r, "#e2b84a", INK, 1.2); ellipse(ctx, cxs, cys, r * 0.62, r * 0.62, null, "#9a7424", 1.2);
@@ -2642,6 +2826,7 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
   lb.setTransform(LS, 0, 0, LS, 0, 0); lb.globalCompositeOperation = "source-over";
   lb.fillStyle = rgbCss(field.skyLight()), lb.fillRect(0, 0, VIEW.width, VIEW.height);
   field.drawGround(lb, (x, y) => toScreen(camera, x, y), (i, j) => cornerHeight(world, i, j), low);
+  if (glr && !low) { lb.globalAlpha = Math.min(1, sunShare * 2.2); drawCloudShadows(lb, project, camera, now, z, underground, scene.reducedMotion); lb.globalAlpha = 1; }
   lap("light map");
   // ---------- Objects, each in the light where it stands ----------
   const lightOn = (drawable: Drawable): RGB | null => {
@@ -2673,8 +2858,17 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
   // scenery notes the sprites it lays, so its shadow and its hole in the light are those sprites again, not a redraw.
   beginSprites();
   const kinds: Record<string, number> = { n_sprite: 0, n_hull: 0, n_floor: 0, n_npc: 0, n_at: 0, n_rect: 0 };
+  // With WebGL, the pixel art of everything standing somewhere goes to the GPU, in its own light and haze (see gpuSprite).
+  const gpuDraw = !!glr && ctx === target;
+  /** How clear of the haze something standing at a point is (1: not hazed). */
+  const clearAt = (at: { x: number; y: number }) => {
+    const real = at.y < FLOOR_Y - 0.5 ? at : here, far = Math.hypot(real.x - here.x, real.y - here.y);
+    const t = Math.max(0, Math.min(1, (far - HAZE_START) / (DRAW_DISTANCE - 4 - HAZE_START)));
+    return 1 - 0.97 * t * t * (3 - 2 * t);
+  };
+  spriteState.loop = gpuDraw;
   for (const drawable of drawables) {
-    drawable.skip = false; drawable.sprites = null; drawable.emitted = null;
+    drawable.skip = false; drawable.sprites = null; drawable.emitted = null; drawable.gpu = false; drawable.touched = false;
     if (drawable.at && drawable.depth !== Infinity) {
       const box = rectOf(drawable), margin = 48 * z;
       if (box[2] < -margin || box[0] > VIEW.width + margin || box[3] < -margin || box[1] > VIEW.height + margin) { drawable.skip = true; continue; }
@@ -2683,10 +2877,22 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
     emitted.length = 0;
     const rec: SpriteDraw[] | null = drawable.sprite ? [] : null;
     kinds[drawable.sprite ? "n_sprite" : drawable.hull ? "n_hull" : drawable.tag ? `n_${drawable.tag}` : drawable.at ? "n_at" : "n_rect"]++;
+    if (gpuDraw) {
+      const at = drawable.at, s = spriteState;
+      s.touched = false; s.sent = false; s.on = !!at && drawable.depth !== Infinity && !drawable.glows;
+      if (at && s.on) { s.footY = toScreen(camera, at.x, at.y).y; s.footDepth = glDepth(camera, at.x, at.y); s.light = lightOn(drawable) ?? WHITE; s.clear = clearAt(at); s.flat = !!drawable.flat; }
+    }
     recordSprites(rec); drawable.draw(); recordSprites(null);
+    if (gpuDraw) {
+      const s = spriteState;
+      drawable.gpu = s.sent; drawable.touched = s.touched; s.on = false;
+      if (s.touched) { const r = drawable.box ?? (drawable.rect ? drawable.rect() : null); if (r) markUsed(r[0], r[1], r[2], r[3]); else layerUsed.fill(1); }
+    }
     if (rec && rec.length) drawable.sprites = rec;
     if (emitted.length) drawable.emitted = emitted.slice();
   }
+  spriteState.loop = false; spriteState.on = false;
+  RENDER_PROFILE.gl_sprites = glr ? glr.spriteTotal : 0;
   for (const [k, v] of Object.entries(kinds)) RENDER_PROFILE[k] = (RENDER_PROFILE[k] ?? v) * 0.9 + v * 0.1;
   lap("draw");
   const sunPower = (sky.sun[0] + sky.sun[1] + sky.sun[2]) / 3;
@@ -2761,6 +2967,8 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
   let tLight = 0, tHaze = 0, cuts = 0;
   drawables.forEach((drawable, index) => {
     if (drawable.skip || !lit) return;
+    // (Drawn wholly on the GPU: lit and hazed there.)
+    if (drawable.gpu && !drawable.touched && !drawable.emitted) return;
     const glow = drawable.emitted;
     if (low) {
       // Low lights walls, roofs and cliffs by their outlines (one fill each); everything else takes the light behind it.
@@ -2781,6 +2989,8 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
     }
     else if (drawable.sprites) {
       // Pixel art: its silhouette in its light, laid over the buffer (the light is quantised, so sprites share tints).
+      // (On the GPU it's lit there.)
+      if (drawable.gpu) return;
       lb.globalCompositeOperation = "source-over";
       stampSprites(lb, drawable.sprites, `rgb(${Math.round(light[0] * 25) * 10},${Math.round(light[1] * 25) * 10},${Math.round(light[2] * 25) * 10})`);
       cuts++;
@@ -2833,7 +3043,8 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
     // The GPU draws its part (sky, ground, walls), lays this layer over it, and lights and hazes the lot; what's drawn
     // from here on (unlit) goes on the top canvas.
     glr.drawWorld({ x: camera.x, y: camera.y, zoom: camera.zoom, angle: camera.angle, pitch: camera.pitch, base: camera.base ?? 0 }, VIEW, glChunks, scene.reducedMotion ? 0 : now / 1000, underground);
-    glr.present(target.canvas, lit ? lb.canvas : null, hazy ? bufs.hazeTint.canvas : null);
+    const skyNow = field.skyLight(), hazeColor = [207 / 255 * Math.min(1, skyNow[0] * 1.08), 215 / 255 * Math.min(1, skyNow[1] * 1.08), 220 / 255 * Math.min(1, skyNow[2] * 1.08)];
+    glr.present(target.canvas, lit ? lb.canvas : null, hazy ? bufs.hazeTint.canvas : null, { x: camera.x, y: camera.y, zoom: camera.zoom, angle: camera.angle, pitch: camera.pitch, base: camera.base ?? 0 }, VIEW, hazeColor);
     if (scene.ui) ctx = scene.ui;
     RENDER_PROFILE.gl_boxes = glr.boxTotal;
   } else applyLight();

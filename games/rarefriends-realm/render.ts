@@ -60,7 +60,18 @@ export type Camera = { x: number; y: number; zoom: number; angle: number; pitch:
 export const PITCH = { min: 0.13, max: 0.74, classic: 0.5 } as const;
 export const ZOOM = { min: 0.55, max: 3, classic: 0.8 } as const;
 /** How far the land is drawn, and where the haze begins (tiles from the camera). */
-const DRAW_DISTANCE = 72, HAZE_START = 48;
+let DRAW_DISTANCE = 72, HAZE_START = 48;
+/**
+ * What the renderer draws, and how finely: High and Low are two of these; Custom graphics (Settings → for nerds) sets
+ * each one itself. `drawDistance` in tiles (the haze starts two thirds of the way out); `lightScale` the light buffer's
+ * resolution; `rain` how much of the rain is drawn.
+ */
+export type Quality = {
+  drawDistance: number; lightScale: number; shadows: boolean; spriteShadows: boolean; clouds: boolean; footprints: boolean;
+  ambient: boolean; fog: boolean; haze: boolean; rain: number; blend: boolean; textures: boolean;
+};
+export const HIGH_QUALITY: Quality = { drawDistance: 72, lightScale: 0.5, shadows: true, spriteShadows: true, clouds: true, footprints: true, ambient: true, fog: true, haze: true, rain: 1, blend: true, textures: true };
+export const LOW_QUALITY: Quality = { drawDistance: 44, lightScale: 0.25, shadows: true, spriteShadows: false, clouds: false, footprints: false, ambient: false, fog: false, haze: false, rain: 0.35, blend: false, textures: false };
 /** Decorations too small to matter in the far distance. */
 const SMALL_DECOR = new Set(["flowers", "reeds", "lily", "rubble", "bush", "hay", "crate", "barrel", "bones"]);
 export type ClickMarker = { x: number; y: number; at: number; red: boolean };
@@ -78,6 +89,8 @@ export type Scene = {
   guideTarget?: { x: number; y: number; lift?: number } | null;
   /** Low graphics: no pixel textures, ambient life, cloud shadows, footprints or fog, lighter rain, a shorter view. */
   low?: boolean;
+  /** What to draw and how finely (Custom graphics); otherwise High's or Low's. */
+  quality?: Quality;
   /** Nameplates over players: everything, the name alone, or none. */
   nameplates?: "full" | "name" | "off";
   reducedMotion: boolean; hits: HitSplat[]; fireworks: Firework[]; chat: { text: string; until: number } | null; projectiles: readonly Projectile[];
@@ -324,6 +337,8 @@ function captureBox(ctx: CanvasRenderingContext2D, camera: Camera, x: number, y:
 }
 // ---------- The GPU's ground ----------
 const CHUNK = 32;
+/** Natural ground, which blends into its neighbours on the GPU instead of meeting them at an inked edge. */
+const SOFT_GROUND: ReadonlySet<number> = new Set([T.GRASS, T.DARK_GRASS, T.PATH, T.SAND, T.SWAMP, T.SNOW, T.GRAVEL, T.FARMLAND, T.ASH, T.STONE]);
 /** A terrain's texture for the GPU: its colour with its pixel texture over it, one per variant (cached, so each is one texture layer). */
 const groundLayerCanvas = new Map<number, HTMLCanvasElement>();
 function groundLayer(glr: RealmGL, terrain: number, variant: number) {
@@ -349,10 +364,14 @@ function groundChunkMesh(glr: RealmGL, world: World, cx: number, cy: number): Fl
     const slope = Math.max(-0.22, Math.min(0.22, ((hA + hD) - (hB + hC) + (hA + hB) - (hD + hC)) * 0.011));
     const shadeAmount = (hash(x, y) - 0.5) * 0.035 + slope - (inDeadwood(world, x, y) ? 0.3 : 0);
     const layer = groundLayer(glr, terrain, Math.floor(hash(y, x) * 4)), mine = EDGE_CLASS[terrain];
-    const edgeTo = (nx: number, ny: number) => { const other = inBounds(nx, ny) ? world.tiles[ny * W + nx] : T.VOID; return !(other === T.VOID || EDGE_CLASS[other] === mine || other === T.WALL || other === T.CLIFF); };
-    const edges = (edgeTo(x, y - 1) ? 1 : 0) | (edgeTo(x + 1, y) ? 2 : 0) | (edgeTo(x, y + 1) ? 4 : 0) | (edgeTo(x - 1, y) ? 8 : 0);
+    const other = (nx: number, ny: number) => inBounds(nx, ny) ? world.tiles[ny * W + nx] : T.VOID;
+    // Natural ground blends into natural ground of another kind (no ink line between them); anything else is inked.
+    const blendTo = (nx: number, ny: number) => { const o = other(nx, ny); return SOFT_GROUND.has(terrain) && SOFT_GROUND.has(o) && o !== terrain ? groundLayer(glr, o, Math.floor(hash(ny, nx) * 4)) : -1; };
+    const blend = [blendTo(x, y - 1), blendTo(x + 1, y), blendTo(x, y + 1), blendTo(x - 1, y)];
+    const edgeTo = (nx: number, ny: number, k: number) => { const o = other(nx, ny); return blend[k] < 0 && !(o === T.VOID || EDGE_CLASS[o] === mine || o === T.WALL || o === T.CLIFF); };
+    const edges = (edgeTo(x, y - 1, 0) ? 1 : 0) | (edgeTo(x + 1, y, 1) ? 2 : 0) | (edgeTo(x, y + 1, 2) ? 4 : 0) | (edgeTo(x - 1, y, 3) ? 8 : 0);
     const kind = terrain === T.WATER ? 1 : terrain === T.DEEP ? 2 : terrain === T.LAVA ? 3 : 0;
-    for (const [dx, dy, h, u, v] of [[-0.5, -0.5, hA, 0, 0], [0.5, -0.5, hB, 1, 0], [0.5, 0.5, hC, 1, 1], [-0.5, 0.5, hD, 0, 1]] as const) out.push(x + dx, y + dy, h, u, v, layer, shadeAmount, edges, kind);
+    for (const [dx, dy, h, u, v] of [[-0.5, -0.5, hA, 0, 0], [0.5, -0.5, hB, 1, 0], [0.5, 0.5, hC, 1, 1], [-0.5, 0.5, hD, 0, 1]] as const) out.push(x + dx, y + dy, h, u, v, layer, shadeAmount, edges, kind, blend[0], blend[1], blend[2], blend[3]);
   }
   return new Float32Array(out);
 }
@@ -2217,10 +2236,12 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
   const inside = floor ? floor.complex : complexAt(world, here.x, here.y);
   const liftGoal = level * STOREY; liftNow = scene.reducedMotion || Math.abs(liftGoal - liftNow) > STOREY * 2 ? liftGoal : liftNow + (liftGoal - liftNow) * Math.min(1, dt * 8);
   setGround(world); viewFloor = floor; camera.base = groundHeight(world, camera.x, camera.y) + liftNow;
-  const low = !!scene.low, reach = low ? 44 : DRAW_DISTANCE;
-  texturesOn = z >= 0.7; beginTextures(ctx);
+  const low = !!scene.low, q = scene.quality ?? (low ? LOW_QUALITY : HIGH_QUALITY);
+  DRAW_DISTANCE = Math.max(24, Math.min(110, Math.round(q.drawDistance))); HAZE_START = Math.round(DRAW_DISTANCE * 2 / 3);
+  const reach = DRAW_DISTANCE;
+  texturesOn = z >= 0.7 && q.textures; beginTextures(ctx);
   const project = (x: number, y: number, lift = 0) => toScreen(camera, x, y, lift);
-  updateEffects(game, camera, dt, scene.reducedMotion || low, 34 / Math.max(0.5, z));
+  updateEffects(game, camera, dt, scene.reducedMotion || !q.ambient, 34 / Math.max(0.5, z));
   // With WebGL the sky and the ground are the GPU's (gl.ts): this layer starts clear.
   const glr = scene.gl ?? null;
   if (glr) ctx.clearRect(0, 0, VIEW.width, VIEW.height);
@@ -2240,7 +2261,8 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
   const rooms = roomLights(world);
   const sunShare = (sky.sun[0] + sky.sun[1] + sky.sun[2]) / Math.max(0.01, sky.sun[0] + sky.sun[1] + sky.sun[2] + sky.ambient[0] + sky.ambient[1] + sky.ambient[2]);
   // (With WebGL the clouds' shadows fall in the light instead, below: the GPU's sprites stand on this layer's bare patches.)
-  if (!low) { if (!glr) { ctx.globalAlpha = Math.min(1, sunShare * 2.2); drawCloudShadows(ctx, project, camera, now, z, underground, scene.reducedMotion); ctx.globalAlpha = 1; } drawPrints(ctx, camera, now, glr ? markUsed : undefined); }
+  if (q.clouds && !glr) { ctx.globalAlpha = Math.min(1, sunShare * 2.2); drawCloudShadows(ctx, project, camera, now, z, underground, scene.reducedMotion); ctx.globalAlpha = 1; }
+  if (q.footprints) drawPrints(ctx, camera, now, glr ? markUsed : undefined);
   const hits: Hit[] = [], drawables: Drawable[] = [], lights: PointLight[] = [], blockers: [number, number, number][] = [];
   // Lamps, torches, fires and spells are point lights in the world (upstairs, at the real place): `lift` is the flame's
   // height, `radius` its reach (screen px at zoom 1). By day they hardly show.
@@ -2808,7 +2830,7 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
 
   // ---------- Light ----------
   // The light is laid at half the screen's resolution (a quarter on Low: light is soft, so it hardly shows).
-  const LS = low ? 0.25 : 0.5, bufs = buffers(target, LS), ls = liftScale(camera);
+  const LS = Math.max(0.25, Math.min(1, q.lightScale)), bufs = buffers(target, LS), ls = liftScale(camera);
   // Low keeps High's light (a coarser field, drawn in bigger patches) and the buildings' shadows, without the
   // silhouettes every sprite throws, the far haze and the cloud shadows.
   // The field changes slowly (the sky drifts, flames flicker): it's rebuilt when the view, the lights, the sky or the
@@ -2826,7 +2848,7 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
   lb.setTransform(LS, 0, 0, LS, 0, 0); lb.globalCompositeOperation = "source-over";
   lb.fillStyle = rgbCss(field.skyLight()), lb.fillRect(0, 0, VIEW.width, VIEW.height);
   field.drawGround(lb, (x, y) => toScreen(camera, x, y), (i, j) => cornerHeight(world, i, j), low);
-  if (glr && !low) { lb.globalAlpha = Math.min(1, sunShare * 2.2); drawCloudShadows(lb, project, camera, now, z, underground, scene.reducedMotion); lb.globalAlpha = 1; }
+  if (glr && q.clouds) { lb.globalAlpha = Math.min(1, sunShare * 2.2); drawCloudShadows(lb, project, camera, now, z, underground, scene.reducedMotion); lb.globalAlpha = 1; }
   lap("light map");
   // ---------- Objects, each in the light where it stands ----------
   const lightOn = (drawable: Drawable): RGB | null => {
@@ -2850,7 +2872,7 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
   const screen = (): [number, number, number, number] => [0, 0, VIEW.width, VIEW.height];
   drawables.push({ depth: Infinity, at: { x: here.x, y: here.y, h: 40 }, rect: screen, draw: () => drawEffects(ctx, project, world, now, z, "lit") });
   if (weather && weather.fog > 0.02) drawables.push({ depth: Infinity, light: field.skyLight().map(v => v * 1.08) as RGB, rect: screen, draw: () => {
-    if (weather && weather.fog > 0.02 && !scene.reducedMotion && !low) drawFog(ctx, camera, weather.fog, now);
+    if (weather && weather.fog > 0.02 && !scene.reducedMotion && q.fog) drawFog(ctx, camera, weather.fog, now);
     else if (weather && weather.fog > 0.02) { ctx.fillStyle = `rgba(232,235,238,${(weather.fog * 0.25).toFixed(3)})`; ctx.fillRect(0, 0, VIEW.width, VIEW.height); }
   } });
   // ---------- The frame: everything in depth order ----------
@@ -2896,7 +2918,7 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
   for (const [k, v] of Object.entries(kinds)) RENDER_PROFILE[k] = (RENDER_PROFILE[k] ?? v) * 0.9 + v * 0.1;
   lap("draw");
   const sunPower = (sky.sun[0] + sky.sun[1] + sky.sun[2]) / 3;
-  if (sunPower > 0.02 && !floor) {
+  if (sunPower > 0.02 && !floor && q.shadows) {
     const sb = bufs.shadow, reach = Math.min(4, 1 / sky.tanE) / 32;
     sb.setTransform(1, 0, 0, 1, 0, 0); sb.globalCompositeOperation = "source-over"; sb.clearRect(0, 0, sb.canvas.width, sb.canvas.height);
     sb.setTransform(LS, 0, 0, LS, 0, 0); sb.fillStyle = "#000";
@@ -2915,7 +2937,7 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
     }
     for (const [bx, by, height] of blockers) shadowBox(bx - 0.5, by - 0.5, bx + 0.5, by + 0.5, height);
     // Everything else throws its own silhouette: drawn again, squashed flat onto the ground and slanted away from the sun.
-    if (!low) {
+    if (q.spriteShadows) {
       // A sprite is flat, so its height is laid along the sun's direction and its width across it (as if it had depth).
       const along = rotate(camera, sky.dirX, sky.dirY), across = rotate(camera, -sky.dirY, sky.dirX), perPx = reach / (ls * z), perW = 1 / (TILE_W / 2 * z);
       const kx = (along.rx - along.ry) * TILE_W / 2 * z * perPx, ky = (along.rx + along.ry) * TILE_W / 2 * camera.pitch * z * perPx;
@@ -2938,7 +2960,7 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
     lb.setTransform(1, 0, 0, 1, 0, 0); lb.globalCompositeOperation = "multiply"; lb.drawImage(sb.canvas, 0, 0); lb.globalCompositeOperation = "source-over";
   }
   // The haze on the land (Low doesn't draw far enough to need it, and there's none underground).
-  const hb = bufs.haze, hazy = !low && !underground && field.buildHaze(here.x, here.y, HAZE_START, DRAW_DISTANCE - 4);
+  const hb = bufs.haze, hazy = q.haze && !underground && field.buildHaze(here.x, here.y, HAZE_START, DRAW_DISTANCE - 4);
   let hazeBottom = -Infinity;
   /** Whether any of the ground behind the top of a screen rect is out in the haze. */
   const overHaze = (rect: [number, number, number, number]) => {
@@ -3042,7 +3064,7 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
   if (glr) {
     // The GPU draws its part (sky, ground, walls), lays this layer over it, and lights and hazes the lot; what's drawn
     // from here on (unlit) goes on the top canvas.
-    glr.drawWorld({ x: camera.x, y: camera.y, zoom: camera.zoom, angle: camera.angle, pitch: camera.pitch, base: camera.base ?? 0 }, VIEW, glChunks, scene.reducedMotion ? 0 : now / 1000, underground);
+    glr.drawWorld({ x: camera.x, y: camera.y, zoom: camera.zoom, angle: camera.angle, pitch: camera.pitch, base: camera.base ?? 0 }, VIEW, glChunks, scene.reducedMotion ? 0 : now / 1000, underground, q.blend, q.textures);
     const skyNow = field.skyLight(), hazeColor = [207 / 255 * Math.min(1, skyNow[0] * 1.08), 215 / 255 * Math.min(1, skyNow[1] * 1.08), 220 / 255 * Math.min(1, skyNow[2] * 1.08)];
     glr.present(target.canvas, lit ? lb.canvas : null, hazy ? bufs.hazeTint.canvas : null, { x: camera.x, y: camera.y, zoom: camera.zoom, angle: camera.angle, pitch: camera.pitch, base: camera.base ?? 0 }, VIEW, hazeColor);
     if (scene.ui) ctx = scene.ui;
@@ -3115,7 +3137,7 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
   // UI over the world: health bars, names, speech, hit splats.
   for (const draw of overlays) draw();
   // Rain over everything, and lightning on top of that.
-  if (weather && weather.rain > 0.02) drawRain(ctx, weather.rain * (low ? 0.35 : 1), scene.reducedMotion ? 0 : now, sky.night);
+  if (weather && weather.rain > 0.02) drawRain(ctx, weather.rain * Math.max(0, Math.min(1, q.rain)), scene.reducedMotion ? 0 : now, sky.night);
   if (scene.strike && scene.wallMs !== undefined && !underground && weather?.storm) drawLightning(ctx, scene.strike, scene.wallMs, scene.reducedMotion);
   lap("rain+lightning");
   // A soft vignette outdoors, for depth.

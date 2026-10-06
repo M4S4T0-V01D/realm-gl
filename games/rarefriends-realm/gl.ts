@@ -26,8 +26,11 @@ export const BOX_FLOATS = 19;
  * colour r, g, b and alpha; and four distances to the face's edges (0 on an edge), for its ink outline.
  */
 export const MESH_FLOATS = 14;
-/** Floats per ground vertex: x, y, h; u, v; layer; shade; edges; kind. */
-export const GROUND_FLOATS = 9;
+/**
+ * Floats per ground vertex: x, y, h; u, v; layer; shade; edges; kind; and the texture layers of the ground it blends
+ * into to the north, east, south and west (−1: an inked edge, or none).
+ */
+export const GROUND_FLOATS = 13;
 /**
  * Floats per sprite: its corners on screen (top left, top right, bottom left: view pixels); its place in the atlas (u0, v0,
  * u1, v1, page); a tint (r, g, b, alpha); its light (r, g, b) and how clear of the haze it is; its feet (screen y, depth)
@@ -51,19 +54,29 @@ vec4 project(vec3 p) {
 const GROUND_VS = /* glsl */ `#version 300 es
 precision highp float;
 ${PROJECT}
-in vec3 aPos; in vec2 aUv; in float aLayer; in float aShade; in float aEdges; in float aKind;
-out vec2 vUv; out float vLayer; out float vShade; flat out int vEdges; flat out int vKind; out float vHeight; out vec2 vWorld;
+in vec3 aPos; in vec2 aUv; in float aLayer; in float aShade; in float aEdges; in float aKind; in vec4 aBlend;
+out vec2 vUv; flat out float vLayer; out float vShade; flat out int vEdges; flat out int vKind; out float vHeight; out vec2 vWorld; flat out vec4 vBlend;
 void main() {
   gl_Position = project(aPos);
-  vUv = aUv; vLayer = aLayer; vShade = aShade; vEdges = int(aEdges + 0.5); vKind = int(aKind + 0.5); vHeight = aPos.z; vWorld = aPos.xy;
+  vUv = aUv; vLayer = aLayer; vShade = aShade; vEdges = int(aEdges + 0.5); vKind = int(aKind + 0.5); vHeight = aPos.z; vWorld = aPos.xy; vBlend = aBlend;
 }`;
 const GROUND_FS = /* glsl */ `#version 300 es
 precision highp float; precision highp sampler2DArray;
-uniform sampler2DArray uGround; uniform float uTime; uniform float uInk;
-in vec2 vUv; in float vLayer; in float vShade; flat in int vEdges; flat in int vKind; in float vHeight; in vec2 vWorld;
+uniform sampler2DArray uGround; uniform float uTime; uniform float uInk; uniform int uBlend;
+in vec2 vUv; flat in float vLayer; in float vShade; flat in int vEdges; flat in int vKind; in float vHeight; in vec2 vWorld; flat in vec4 vBlend;
 out vec4 outColor;
 void main() {
-  vec3 color = texture(uGround, vec3(vUv, vLayer)).rgb + vShade;
+  // Where natural ground meets another kind (grass and sand, path and snow), the two are dithered into each other a
+  // texel at a time across the last few texels of each side, more of the neighbour the nearer its edge.
+  float layer = vLayer;
+  if (uBlend == 1 && max(max(vBlend.x, vBlend.y), max(vBlend.z, vBlend.w)) >= 0.0) {
+    vec2 texel = floor(clamp(vUv, 0.0, 0.9999) * 16.0), c = (texel + 0.5) / 16.0, tile = floor(vWorld + 0.5);
+    float r = fract(sin(dot(texel + tile * 16.0, vec2(12.9898, 78.233))) * 43758.5453);
+    vec4 d = vec4(c.y, 1.0 - c.x, 1.0 - c.y, c.x), w = 0.5 * clamp(1.0 - d / 0.42, 0.0, 1.0) * step(0.0, vBlend);
+    float best = max(max(w.x, w.y), max(w.z, w.w));
+    if (r < best) layer = best == w.x ? vBlend.x : best == w.y ? vBlend.y : best == w.z ? vBlend.z : vBlend.w;
+  }
+  vec3 color = texture(uGround, vec3(vUv, layer)).rgb + vShade;
   // Water: slow ripples catching the light; lava: a pulsing glow.
   if (vKind == 1 || vKind == 2) {
     float t = uTime;
@@ -446,7 +459,7 @@ export class RealmGL {
     const tiles = vertices.length / (GROUND_FLOATS * 4), vao = gl.createVertexArray()!; gl.bindVertexArray(vao);
     const vb = gl.createBuffer()!; gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
     const p = this.ground;
-    for (const [name, size, offset] of [["aPos", 3, 0], ["aUv", 2, 3], ["aLayer", 1, 5], ["aShade", 1, 6], ["aEdges", 1, 7], ["aKind", 1, 8]] as const) {
+    for (const [name, size, offset] of [["aPos", 3, 0], ["aUv", 2, 3], ["aLayer", 1, 5], ["aShade", 1, 6], ["aEdges", 1, 7], ["aKind", 1, 8], ["aBlend", 4, 9]] as const) {
       const a = p.a(name); if (a < 0) continue; gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, size, gl.FLOAT, false, GROUND_FLOATS * 4, offset * 4);
     }
     const index = new Uint32Array(tiles * 6);
@@ -510,7 +523,7 @@ export class RealmGL {
    * Draw the GPU's part of the frame into its own picture: the sky (or the dark underground), the ground chunks asked
    * for, and the frame's boxes.
    */
-  drawWorld(camera: GLCamera, view: { width: number; height: number }, chunks: readonly string[], time: number, underground: boolean) {
+  drawWorld(camera: GLCamera, view: { width: number; height: number }, chunks: readonly string[], time: number, underground: boolean, blend = true, textures = true) {
     const gl = this.gl, w = gl.canvas.width, h = gl.canvas.height;
     this.frame++; this.resize(w, h);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo); gl.viewport(0, 0, w, h);
@@ -523,7 +536,7 @@ export class RealmGL {
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT);
     // The ground.
     gl.useProgram(this.ground.program); this.setCamera(this.ground, camera, view);
-    gl.uniform1f(this.ground.u("uTime"), time); gl.uniform1f(this.ground.u("uInk"), Math.max(0.8, camera.zoom) * (w / view.width));
+    gl.uniform1f(this.ground.u("uTime"), time); gl.uniform1f(this.ground.u("uInk"), Math.max(0.8, camera.zoom) * (w / view.width)); gl.uniform1i(this.ground.u("uBlend"), blend ? 1 : 0);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.groundLayers.texture); gl.uniform1i(this.ground.u("uGround"), 0);
     for (const key of chunks) { const c = this.chunks.get(key); if (!c) continue; c.used = this.frame; gl.bindVertexArray(c.vao); gl.drawElements(gl.TRIANGLES, c.count, gl.UNSIGNED_INT, 0); }
     // The boxes.

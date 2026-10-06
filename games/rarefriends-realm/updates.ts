@@ -4,6 +4,12 @@
  */
 export type Update = { id: number; date: string; title: string; items: readonly string[] };
 export const UPDATES: readonly Update[] = [
+  { id: 84, date: "2026-10-06", title: "Realm-GL: blended ground, and graphics settings for nerds", items: [
+    "Where natural ground meets another kind, the two now blend into each other a texel at a time instead of meeting at an inked line: grass into sand, paths into snow, dark grass into light, swamp, gravel, farmland, ash and stone. Water, floors, roads and walls keep their crisp edges.",
+    "Graphics has a third choice, Custom, with a full settings screen (for nerds): WebGL on or off, resolution, adaptive resolution, draw distance, pixel textures, blended ground, footprints, haze, light resolution, building and sprite shadows, cloud shadows, rain, fog, ambient life, and how softly the camera follows you.",
+    "Turn on Show frame rate in it for a readout of frames a second, how long each frame takes to draw, and how many sprites and boxes the graphics card drew.",
+    "The camera now eases after you by time instead of by frame, so it feels the same on a 60 Hz screen as on a 144 Hz one.",
+  ] },
   { id: 83, date: "2026-10-06", title: "Realm-GL: roofs, shop fronts, people, trees and everything standing in the world", items: [
     "Roofs are drawn on your graphics card now: gabled, hipped and pointed roofs in their shingles, gable ends in brick or timber, chimneys, flat roofs with their battlements, and the palace's keep. They still fade as you walk in under them.",
     "So are the fronts: shops' striped awnings, and the columns, marble bands and pediments of the banks and halls of state.",

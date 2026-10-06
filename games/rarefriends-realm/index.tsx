@@ -13,10 +13,10 @@ import { TICK_MS, attackSpeed, combatLevel, createGame, giveOrDrop, message, tot
 import {
   chooseOption, closeInterfaces, collectFromCasket, creditReferral, emoteProblem, performEmote, syncMonster, continueDialogue, grantBundle, menuFor, tailorChoices, unlockMusic, restore, serialize, setFollower, setHeld, setRelics, tick, toggleRun, toggleSneak, toggleMount, grantMount, walkTo, type OwnedFriend, type Selection,
 } from "./engine.ts";
-import { PITCH, RENDER_PROFILE, VIEW, ZOOM, addPrint, daylight, minimapTile, northAngle, pickAt, renderMinimap, renderScene, toScreen, toTile, type Camera, type ClickMarker, type Firework, type HitSplat } from "./render.ts";
+import { HIGH_QUALITY, PITCH, RENDER_PROFILE, VIEW, ZOOM, addPrint, daylight, minimapTile, northAngle, pickAt, renderMinimap, renderScene, toScreen, toTile, type Camera, type ClickMarker, type Firework, type HitSplat } from "./render.ts";
 import {
   BankModal, CardsModal, CarvingBuffs, FeedbackModal, ChatBox, ContextMenu, DailyModal, FellowshipModal, HomeModal, JoinModal, RfActionModal, FirstStepsCard, GuideModal, TradeModal, DialogueBox, FriendPortrait, HelpModal, LampModal, NamingModal, LevelUpBox, Modal, Orbs, PixelIcon, ProductionBox, ShopModal, SidePanel, TABS, WorldMapModal,
-  cancelLongPress, longPress, rightClick, type MenuEntry, type Settings, type Tab,
+  cancelLongPress, longPress, rightClick, NerdSettings, customFrom, type CustomGraphics, type MenuEntry, type Settings, type Tab,
 } from "./panels.tsx";
 import { REGULAR_SPRITES } from "./regulars.ts";
 import { NET_ACT, NET_ACT_IN, NET_CHAT, NET_CHAT_IN, NET_ONLINE, NET_PRESENCE, NET_SOCIAL, NET_STATE, cleanAct, cleanChat, cleanId, cleanPresence, type Act, type NetState, type Presence } from "./net.ts";
@@ -58,7 +58,7 @@ import "./style.css";
 export const RF_DISPLAY_DECIMALS = 15;
 const rf = (value: bigint) => `${formatGameAmount(value, RF_DISPLAY_DECIMALS)} RF`;
 type Phase = "loading" | "title" | "playing" | "failed";
-type Modal = "caskets" | "map" | "card" | "cards" | "help" | "feedback" | null;
+type Modal = "caskets" | "map" | "card" | "cards" | "help" | "feedback" | "nerds" | null;
 type XpDrop = { id: number; skill: Skill; amount: number; at: number };
 type CasketResult = { play: bigint; outcomeId: number; wardrobe: string | null; coins: number; redeemed: boolean };
 const CANONICAL = new Map<number, GenerationSprites>(REGULAR_SPRITES.map(sprites => [Number(sprites.tokenId), sprites]));
@@ -82,6 +82,19 @@ const perf = { ms: 0, frames: 0, interval: 16.7, lastFrame: 0 };
  * crisply either way, and 1.5× has about half the pixels of 2× to light and shade).
  */
 const isLow = (settings: Settings) => settings.graphics === "low";
+/** Custom graphics' knobs, when they're in use. */
+const customOf = (settings: Settings) => settings.graphics === "custom" ? settings.custom ?? customFrom(HIGH_QUALITY) : null;
+/** Custom graphics as saved, checked knob by knob (anything missing or odd is High's). */
+function cleanCustom(raw: unknown): CustomGraphics {
+  const base = customFrom(HIGH_QUALITY), out = { ...base } as Record<string, unknown>, given = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const range: Record<string, [number, number]> = { drawDistance: [24, 110], lightScale: [0.25, 1], rain: [0, 1], resolution: [0.5, 2], smoothing: [0, 1] };
+  for (const [key, value] of Object.entries(base)) {
+    const v = given[key];
+    if (typeof value === "boolean" && typeof v === "boolean") out[key] = v;
+    else if (typeof value === "number" && typeof v === "number" && Number.isFinite(v)) out[key] = Math.max(range[key]?.[0] ?? -Infinity, Math.min(range[key]?.[1] ?? Infinity, v));
+  }
+  return out as CustomGraphics;
+}
 /** High's resolution, lowered when the machine can't keep up (see adaptive.ts). */
 const adaptive = newAdaptive();
 let fixedWeather: Weather | null = typeof navigator !== "undefined" && navigator.webdriver ? { rain: 0, storm: false, fog: 0 } : null;
@@ -100,7 +113,7 @@ function loadSettings(): Settings {
       music: flag("music"), sfx: flag("sfx"), musicVolume: unit("musicVolume"), sfxVolume: unit("sfxVolume"), shiftDrop: flag("shiftDrop"), autoMusic: flag("autoMusic"),
       zoom: typeof raw.zoom === "number" && Number.isFinite(raw.zoom) ? Math.max(ZOOM.min, Math.min(ZOOM.max, raw.zoom)) : DEFAULT_SETTINGS.zoom,
       dayNight: typeof raw.dayNight === "boolean" ? raw.dayNight : true, weather: typeof raw.weather === "boolean" ? raw.weather : undefined,
-      graphics: raw.graphics === "low" ? "low" : "high",
+      graphics: raw.graphics === "low" ? "low" : raw.graphics === "custom" ? "custom" : "high", custom: raw.custom ? cleanCustom(raw.custom) : undefined,
       friendSpeech: (["full", "reduced", "rare", "off"] as const).find(level => level === raw.friendSpeech) ?? "full",
       nameplates: (["full", "name", "off"] as const).find(level => level === raw.nameplates) ?? "full",
     };
@@ -168,12 +181,13 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
       const view = canvas.current;
       // Low graphics draws at one pixel per CSS pixel (a sharp screen at 2× costs four times the pixels).
       const low = isLow(live.current.settings);
-      if (view) { const ratio = low ? 1 : Math.min(window.devicePixelRatio || 1, adaptive.cap); view.width = Math.round(logical.width * scale * ratio); view.height = Math.round(logical.height * scale * ratio); }
+      const custom = customOf(live.current.settings);
+      if (view) { const ratio = custom ? Math.max(0.5, Math.min(2, custom.resolution * (custom.adaptive ? Math.min(1, adaptive.cap / 1.5) : 1))) : low ? 1 : Math.min(window.devicePixelRatio || 1, adaptive.cap); view.width = Math.round(logical.width * scale * ratio); view.height = Math.round(logical.height * scale * ratio); }
       if (view && glCanvas.current) { glCanvas.current.width = view.width; glCanvas.current.height = view.height; }
     };
     const observer = new ResizeObserver(measure); observer.observe(node); measure(); resizeRef.current = measure;
     return () => observer.disconnect();
-  }, [phase, settings.graphics]);
+  }, [phase, settings.graphics, settings.custom?.resolution, settings.custom?.adaptive]);
 
   // ---------- Audio ----------
   const setSettings = useCallback((next: Settings) => {
@@ -523,20 +537,24 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
         const alpha = Math.min(1, (now - tickAt.current) / TICK_MS), moved = player.moved === state.tick;
         // Follow where you really are (upstairs, the storey's tiles stand over the building).
         const { x: tx, y: ty } = realPoint(state.world, moved ? player.prev.x + (player.x - player.prev.x) * alpha : player.x, moved ? player.prev.y + (player.y - player.prev.y) * alpha : player.y);
-        camera.current.x += (tx - camera.current.x) * 0.35; camera.current.y += (ty - camera.current.y) * 0.35; camera.current.zoom = live.current.settings.zoom;
+        // The camera eases after you by time, not by frame, so it feels the same at any frame rate (Custom: how loosely).
+        const loose = customOf(live.current.settings)?.smoothing ?? 0.72, follow = 1 - Math.pow(1 - Math.max(0.05, 1 - loose * 0.9), Math.max(0.001, dt) * 60);
+        camera.current.x += (tx - camera.current.x) * follow; camera.current.y += (ty - camera.current.y) * follow; camera.current.zoom = live.current.settings.zoom;
       }
       const ratio = node.width / VIEW.width;
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.imageSmoothingEnabled = false;
-      if (layer && layerCtx) {
+      const custom = customOf(live.current.settings), useGl = !!gpu && custom?.webgl !== false;
+      if (glCanvas.current) glCanvas.current.style.visibility = useGl ? "" : "hidden";
+      if (layer && layerCtx && useGl) {
         if (layer.width !== node.width || layer.height !== node.height) { layer.width = node.width; layer.height = node.height; }
         layerCtx.setTransform(ratio, 0, 0, ratio, 0, 0); layerCtx.imageSmoothingEnabled = false;
         ctx.clearRect(0, 0, VIEW.width, VIEW.height);
       }
       const drawStart = performance.now();
       const step = current === "playing" ? currentStep(state) : null, guideTarget = step?.target?.(state) ?? null;
-      renderScene(layerCtx ?? ctx, {
-        gl: gpu, ui: layerCtx ? ctx : undefined,
-        guideTarget,
+      renderScene(useGl && layerCtx ? layerCtx : ctx, {
+        gl: useGl ? gpu : null, ui: useGl && layerCtx ? ctx : undefined,
+        guideTarget, quality: custom ?? undefined,
         low: isLow(live.current.settings), nameplates: live.current.settings.nameplates ?? "full",
         game: state, now, tickAt: tickAt.current, camera: camera.current, friend: friend.current,
         follower: player.follower !== null ? followerSprites.current.get(player.follower) ?? null : null, canonical: CANONICAL,
@@ -559,13 +577,19 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
       });
       // Frame cost, for the performance check.
       const cost = performance.now() - drawStart; perf.ms = perf.frames++ ? perf.ms * 0.95 + cost * 0.05 : cost;
+      // Custom graphics' frame-rate readout, top centre.
+      if (custom?.fps && current === "playing") {
+        const text = `${Math.round(1000 / Math.max(1, perf.interval))} fps · ${perf.ms.toFixed(1)} ms · ${useGl ? `WebGL · ${RENDER_PROFILE.gl_sprites ?? 0} sprites · ${RENDER_PROFILE.gl_boxes ?? 0} boxes` : "canvas"} · ${(node.width / VIEW.width).toFixed(2)}×`;
+        ctx.save(); ctx.font = "bold 11px monospace"; const w = ctx.measureText(text).width + 12;
+        ctx.fillStyle = "rgba(22,22,22,0.78)"; ctx.fillRect(VIEW.width / 2 - w / 2, 4, w, 18); ctx.fillStyle = "#e8e5de"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(text, VIEW.width / 2, 13.5); ctx.restore();
+      }
       // The real frame rate (it counts the GPU's work too); hitches and hidden tabs are left out.
       const gap = now - perf.lastFrame; perf.lastFrame = now;
       if (gap > 0 && gap < 250 && document.visibilityState === "visible") perf.interval = perf.interval * 0.97 + gap * 0.03;
       // Once a second, High checks it's keeping up, and draws fewer pixels if it isn't.
       if (now - lastAdapt > 1000 && document.visibilityState === "visible") {
         lastAdapt = now;
-        if (!isLow(live.current.settings) && adapt(adaptive, perf.interval, perf.ms, window.devicePixelRatio || 1) !== null) resizeRef.current?.();
+        if (!isLow(live.current.settings) && (custom?.adaptive ?? true) && adapt(adaptive, perf.interval, perf.ms, window.devicePixelRatio || 1) !== null) resizeRef.current?.();
       }
       if (mini && current === "playing" && now - lastHud > 90) {
         lastHud = now; const size = mini.canvas.width;
@@ -987,7 +1011,7 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
                 if (linked.current) saveNow.current(true);
                 else message(state, "Saves aren't connected yet, so this restore isn't saved: keep playing in this tab and it saves once they connect. If Settings still says saves are off, reload the page and restore the code again.", "info");
               } return error; }} settings={settings} setSettings={setSettings}
-            friend={friend.current} trackName={audio.current?.trackName ?? ""} trackId={audio.current?.trackId ?? ""} playTrack={id => { audio.current?.play(id as TrackId); audio.current?.unlock(); setSettings({ ...settings, autoMusic: false }); }} openCard={openCard} openCards={() => setModal("cards")} openFeedback={() => { setFeedbackStatus(""); setModal("feedback"); }} openHelp={() => setModal("help")} paused={paused} saved={savedText}
+            friend={friend.current} trackName={audio.current?.trackName ?? ""} trackId={audio.current?.trackId ?? ""} playTrack={id => { audio.current?.play(id as TrackId); audio.current?.unlock(); setSettings({ ...settings, autoMusic: false }); }} openCard={openCard} openCards={() => setModal("cards")} openFeedback={() => { setFeedbackStatus(""); setModal("feedback"); }} openHelp={() => setModal("help")} openNerds={() => setModal("nerds")} paused={paused} saved={savedText}
             relicCounts={snapshot?.inventory.map(Number) ?? [0, 0, 0, 0]} openCaskets={() => setModal("caskets")} />
           {selection && <div className="realm-selection" role="status">{selection.kind === "item" ? `Use ${player.inventory[selection.slot] ? itemName(player.inventory[selection.slot]!.id) : "item"} ->` : `Cast ${SPELLS.find(spell => spell.id === selection.spell)?.name ?? "spell"} ->`} pick a target <button type="button" onClick={() => setSelection(null)}>Cancel</button></div>}
 
@@ -1071,6 +1095,7 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
             </Modal>
           )}
           {modal === "cards" && <CardsModal game={state} onClose={() => setModal(null)} />}
+          {modal === "nerds" && <NerdSettings settings={settings} setSettings={setSettings} onClose={() => setModal(null)} webgl={!!glr.current} />}
           {modal === "feedback" && <FeedbackModal onClose={() => setModal(null)} onSend={sendFeedback} status={feedbackStatus} />}
           {modal === "map" && <WorldMapModal game={state} onClose={() => setModal(null)} onTravel={(x, y) => { setModal(null); walkTo(state, x, y); marker.current = { x, y, at: performance.now(), red: false }; refresh(); }} />}
           {modal === "help" && <HelpModal onClose={() => setModal(null)} onFeedback={() => { setFeedbackStatus(""); setModal("feedback"); }} />}

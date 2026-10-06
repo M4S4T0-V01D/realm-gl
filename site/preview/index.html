@@ -239,13 +239,13 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   </div>
   <div class="wrap trailer" id="trailer">
     <div class="frame">
-      <video id="trailer-video" src="media/update-raria.mp4" poster="media/update-raria-poster.jpg" autoplay muted playsinline controls preload="metadata"
-        aria-label="RareFriends Realm update video: faith weapons against the Catacombs' dead, the Crystal Golem in the Deepglass Caverns, the Drowned Archive, the Howling King in the Howling Vault, the Rare Friends Ring from above, a match in its courtyard, and the Ring's shops"></video>
+      <video id="trailer-video" src="media/update-webgl.mp4" poster="media/update-webgl-poster.jpg" autoplay muted playsinline controls preload="metadata"
+        aria-label="Realm WebGL beta video: ground blending at Fernwick, Friendhollow's roofs zooming out, Raria's palace and keep, Frostpeak in the snow, a lamplit evening in the square, and the graphics settings for nerds"></video>
       <button class="btn primary sound" id="trailer-sound" type="button">🔊 Watch with sound</button>
       <button class="arrow prev" id="trailer-prev" type="button" aria-label="Previous video">‹</button>
       <button class="arrow next" id="trailer-next" type="button" aria-label="Next video">›</button>
     </div>
-    <p><span class="count" id="trailer-count">1 / 6</span><b id="trailer-title">The Rare Friends Ring, three dungeons and faith weapons</b> <span id="trailer-note">New this week: faith weapons in every metal, three dungeons with keyed doors and coffers, and the Rare Friends Ring, an arena of brutality and death. Every shot recorded straight from the game, set to the Ring's own war march.</span></p>
+    <p><span class="count" id="trailer-count">1 / 6</span><b id="trailer-title">Realm WebGL: the same Realm on your graphics card</b> <span id="trailer-note">In beta: ground that blends, shingled roofs at every zoom, every tree and Friend lit where it stands, and graphics settings for nerds.</span></p>
     <div class="reel" id="trailer-reel" aria-label="Up next"></div>
   </div>
   <div class="wrap hero">
@@ -520,6 +520,9 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   // music player take turns.
   (() => {
     const VIDEOS = [
+      { src: "media/update-webgl.mp4", poster: "media/update-webgl-poster.jpg", title: "Realm WebGL: the same Realm on your graphics card", when: "October 2026",
+        note: "In beta: ground that blends from grass to sand and path to snow, shingled roofs and bricks at every zoom, every tree and Friend lit where it stands, and graphics settings for nerds.",
+        label: "Realm WebGL beta video: ground blending at Fernwick, Friendhollow's roofs zooming out, Raria's palace and keep, Frostpeak in the snow, a lamplit evening in the square, and the graphics settings for nerds" },
       { src: "media/update-raria.mp4", poster: "media/update-raria-poster.jpg", title: "Return of Raria", when: "October 2026",
         note: "New this week: the Kingdom of Raria behind the Drakespine, Queen Rara and her Royal Rangers, the Rare Realm Regiment in Deep Westmarch, the Free Friends Federation and its fortress, BarkReach, the Burned of Ashfall, the Wise Friend's Law over Magic and Faith, and Adventurer Cards. Every shot recorded straight from the game.",
         label: "RareFriends Realm update video: the walled city of Raria and its palace, Queen Rara and King Pell on the throne, Royal Rangers, the Rare Realm Regiment's camp, the Free Friends Federation's Great Hall with its devices and cannon, BarkReach's redwoods, the Burned in Ashfall, the Rarian Magic and Faith tabs, and the Adventurer Cards" },

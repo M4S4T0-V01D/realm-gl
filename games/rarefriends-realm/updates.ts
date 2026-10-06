@@ -4,6 +4,11 @@
  */
 export type Update = { id: number; date: string; title: string; items: readonly string[] };
 export const UPDATES: readonly Update[] = [
+  { id: 85, date: "2026-10-06", title: "Realm-GL: light and shadow on your graphics card, and twice the frame rate", items: [
+    "The light itself is worked out on your graphics card now. The ground is lit straight from the Realm's light map, so lamps, torches, fires and the sky light it smoothly wherever you look.",
+    "The sun's shadows are drawn there too: every building, wall, tree, rock, creature and Friend throws its shadow across the ground, and the clouds' shadows drift over the land. Lit windows glow on the card, and the haze in the distance is worked out pixel by pixel.",
+    "It all makes the game much faster. Walking zoomed out through Friendhollow, Raria, the Ring or BarkReach now holds about 60 frames a second on a desktop graphics card, where it used to drop to 30, and the stutters are nearly gone.",
+  ] },
   { id: 84, date: "2026-10-06", title: "Realm-GL: blended ground, and graphics settings for nerds", items: [
     "Where natural ground meets another kind, the two now blend into each other a texel at a time instead of meeting at an inked line: grass into sand, paths into snow, dark grass into light, swamp, gravel, farmland, ash and stone. Water, floors, roads and walls keep their crisp edges.",
     "Graphics has a third choice, Custom, with a full settings screen (for nerds): WebGL on or off, resolution, adaptive resolution, draw distance, pixel textures, blended ground, footprints, haze, light resolution, building and sprite shadows, cloud shadows, rain, fog, ambient life, and how softly the camera follows you.",

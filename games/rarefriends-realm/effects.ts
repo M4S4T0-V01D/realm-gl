@@ -190,14 +190,18 @@ export function updateEffects(game: Game, camera: { x: number; y: number }, dt: 
 /** Big soft cloud shadows sliding over the land (drawn just after the terrain). */
 export function drawCloudShadows(ctx: CanvasRenderingContext2D, project: Project, camera: { x: number; y: number }, now: number, zoom: number, underground: boolean, reduced: boolean) {
   if (underground) return;
-  const t = reduced ? 0 : now / 1000;
+  ctx.fillStyle = "rgba(22,22,22,0.055)";
+  for (const [x, y, rx, ry] of cloudShadows(project, camera, now, zoom, reduced)) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); }
+}
+/** The clouds' shadows on screen: ellipses (centre x, y and radii, screen px), drifting with the wind. */
+export function cloudShadows(project: Project, camera: { x: number; y: number }, now: number, zoom: number, reduced: boolean): [number, number, number, number][] {
+  const t = reduced ? 0 : now / 1000, out: [number, number, number, number][] = [];
   for (let i = 0; i < 4; i++) {
     const span = 60, cx = camera.x + ((((i * 37 + t * 0.35) % span) + span) % span) - span / 2, cy = camera.y + ((((i * 53 + t * 0.2) % span) + span) % span) - span / 2;
     const p = project(cx, cy, 0);
-    ctx.fillStyle = "rgba(22,22,22,0.055)";
-    ctx.beginPath(); ctx.ellipse(p.x, p.y, (90 + i * 20) * zoom, (40 + i * 8) * zoom, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(p.x + 60 * zoom, p.y + 14 * zoom, 60 * zoom, 26 * zoom, 0, 0, Math.PI * 2); ctx.fill();
+    out.push([p.x, p.y, (90 + i * 20) * zoom, (40 + i * 8) * zoom], [p.x + 60 * zoom, p.y + 14 * zoom, 60 * zoom, 26 * zoom]);
   }
+  return out;
 }
 /** Particles and birds, on top of the scene. */
 /**

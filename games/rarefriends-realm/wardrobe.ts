@@ -5,7 +5,7 @@
  * worn pieces and the canonical white halo around everything.
  */
 import { METALS, WARDROBE, isItem, item, type WardrobeId } from "./data.ts";
-import { Pixels, shadeHex, sinkSprite } from "./pixel.ts";
+import { Pixels, noteSprite, shadeHex, sinkSprite } from "./pixel.ts";
 import { itemArt, skillEmblem } from "./icons.ts";
 import type { Facing } from "./state.ts";
 import { inPattern, isPattern, type ClothPattern } from "./patterns.ts";
@@ -940,6 +940,8 @@ function drawShield(p: Pixels, piece: Piece, x: number, y: number, rear: boolean
 /** Draw a figure with its feet on (x, y); `px` screen pixels per sprite pixel. Returns the drawn box. */
 export function drawFigure(ctx: CanvasRenderingContext2D, art: HTMLCanvasElement, x: number, y: number, px: number, alpha = 1) {
   const w = art.width * px / K, h = art.height * px / K;
+  // (Noted like pixel art, so its shadow is its silhouette laid again.)
+  noteSprite(art, Math.round(x - w / 2), Math.round(y - h + (1 + PAD_BOTTOM) * px), Math.round(w), Math.round(h), alpha);
   if (!sinkSprite(ctx, art, Math.round(x - w / 2), Math.round(y - h + (1 + PAD_BOTTOM) * px), Math.round(w), Math.round(h), alpha)) {
     ctx.globalAlpha = alpha; ctx.imageSmoothingEnabled = false;
     ctx.drawImage(art, Math.round(x - w / 2), Math.round(y - h + (1 + PAD_BOTTOM) * px), Math.round(w), Math.round(h));

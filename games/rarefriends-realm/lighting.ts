@@ -332,6 +332,8 @@ export class LightField {
     }
     return out;
   }
+  /** The light map as last built, for the GPU: its canvas, the tiles it starts at, samples per tile, its size in samples, and which build it is. */
+  get map() { return { canvas: this.canvas, x0: this.x0, y0: this.y0, S: this.S, gw: this.gw, gh: this.gh, version: this.builds }; }
   /** The open sky's light, for things up in the air (haze, fog, roofs). */
   skyLight(): RGB { const { ambient, sun } = this.sky; return [ambient[0] + sun[0], ambient[1] + sun[1], ambient[2] + sun[2]]; }
 

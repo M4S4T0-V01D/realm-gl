@@ -46,6 +46,7 @@ const THRONE = { x: mainlandToWorld(177, 212)[0], y0: mainlandToWorld(177, 212)[
 import { burst } from "./effects.ts";
 import { textureStats } from "./textures.ts";
 import { adapt, newAdaptive } from "./adaptive.ts";
+import { RealmGL } from "./gl.ts";
 import "@rarefriends/friendsdk/frame.css";
 import "./style.css";
 
@@ -110,6 +111,8 @@ function saveSettings(settings: Settings) { try { localStorage.setItem(SETTINGS_
 /** RareFriends Realm. The SDK runtime supplies wallet connection, the verified owned Friend and the fixed (simulated) RF client. */
 export default function RareFriendsRealm({ friendId, client, paused }: GameComponentProps) {
   const root = useRef<HTMLDivElement>(null), stage = useRef<HTMLDivElement>(null), canvas = useRef<HTMLCanvasElement>(null), minimap = useRef<HTMLCanvasElement>(null);
+  /** The GPU's canvas, under the top one (gl.ts), and its renderer (null without WebGL2: the canvas renderer draws alone). */
+  const glCanvas = useRef<HTMLCanvasElement>(null), glr = useRef<RealmGL | null | undefined>(undefined);
   const game = useRef<Game | null>(null), friend = useRef<GenerationSprites | null>(null), audio = useRef<RealmAudio | null>(null);
   const followerSprites = useRef(new Map<number, GenerationSprites>()), loadingSprites = useRef(new Set<number>());
   const camera = useRef<Camera>({ x: mainlandToWorld(121, 121)[0], y: mainlandToWorld(121, 121)[1], zoom: DEFAULT_SETTINGS.zoom, angle: 0, pitch: PITCH.classic }), cameraGoal = useRef<{ angle: number; pitch: number } | null>(null),
@@ -166,6 +169,7 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
       // Low graphics draws at one pixel per CSS pixel (a sharp screen at 2× costs four times the pixels).
       const low = isLow(live.current.settings);
       if (view) { const ratio = low ? 1 : Math.min(window.devicePixelRatio || 1, adaptive.cap); view.width = Math.round(logical.width * scale * ratio); view.height = Math.round(logical.height * scale * ratio); }
+      if (view && glCanvas.current) { glCanvas.current.width = view.width; glCanvas.current.height = view.height; }
     };
     const observer = new ResizeObserver(measure); observer.observe(node); measure(); resizeRef.current = measure;
     return () => observer.disconnect();
@@ -389,8 +393,12 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
   useEffect(() => {
     if (phase !== "title" && phase !== "playing") return;
     // The frame is opaque (the sky or the dark is painted under everything), which is cheaper to put on screen.
-    const node = canvas.current, ctx = node?.getContext("2d", { alpha: false }), mini = minimap.current?.getContext("2d");
+    // WebGL first: with it, the top canvas is see-through (names and bars over the GPU's picture); without it, opaque.
+    if (glr.current === undefined) glr.current = glCanvas.current ? RealmGL.create(glCanvas.current, navigator.webdriver) : null;
+    const gpu = glr.current, node = canvas.current, ctx = node?.getContext("2d", { alpha: !!gpu }), mini = minimap.current?.getContext("2d");
     if (!node || !ctx) return;
+    // The world's layer for the GPU to lay over its picture (everything the canvas renderer still draws), off screen.
+    const layer = gpu ? document.createElement("canvas") : null, layerCtx = layer?.getContext("2d") ?? null;
     let frame = 0, lastHud = 0, dropId = 0, lastFrame = 0, lastAdapt = 0;
     tickAt.current = performance.now();
     const loop = (now: number, viaTimer = false) => {
@@ -519,9 +527,15 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
       }
       const ratio = node.width / VIEW.width;
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.imageSmoothingEnabled = false;
+      if (layer && layerCtx) {
+        if (layer.width !== node.width || layer.height !== node.height) { layer.width = node.width; layer.height = node.height; }
+        layerCtx.setTransform(ratio, 0, 0, ratio, 0, 0); layerCtx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, VIEW.width, VIEW.height);
+      }
       const drawStart = performance.now();
       const step = current === "playing" ? currentStep(state) : null, guideTarget = step?.target?.(state) ?? null;
-      renderScene(ctx, {
+      renderScene(layerCtx ?? ctx, {
+        gl: gpu, ui: layerCtx ? ctx : undefined,
         guideTarget,
         low: isLow(live.current.settings), nameplates: live.current.settings.nameplates ?? "full",
         game: state, now, tickAt: tickAt.current, camera: camera.current, friend: friend.current,
@@ -908,6 +922,7 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
       data-total={player ? totalLevel(player) : 0} data-hp={player?.hp ?? 0} data-quests={state ? questPoints(state) : 0} data-hosted={hosted}
       onContextMenu={event => event.preventDefault()}>
       <div ref={stage} className="realm-stage" style={{ width: size.width, height: size.height, left: `calc(50% - ${size.width * size.scale / 2}px)`, top: `calc(50% - ${size.height * size.scale / 2}px)`, transform: `scale(${size.scale})`, "--toolbar": `${Math.ceil(54 / size.scale)}px` } as CSSProperties}>
+        <canvas ref={glCanvas} className="realm-gl" aria-hidden="true" />
         <canvas ref={canvas} className="realm-view" tabIndex={0} aria-label="The Realm. Left-click to act, right-click for options, WASD to walk."
           style={{ width: size.width, height: size.height }}
           onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={() => { cancelLongPress(); orbit.current = null; }}

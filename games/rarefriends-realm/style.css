@@ -5,6 +5,8 @@
 .realm-game * { box-sizing: border-box; }
 .realm-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
 .realm-view { position: absolute; inset: 0; display: block; touch-action: none; cursor: default; outline: none; image-rendering: pixelated; }
+/* The GPU's picture, under the top canvas (which carries names, bars and the rest over it). */
+.realm-gl { position: absolute; inset: 0; display: block; pointer-events: none; image-rendering: pixelated; }
 .realm-game button { font: inherit; color: inherit; cursor: pointer; }
 .realm-game button:focus-visible, .realm-game input:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 .realm-game button:disabled { cursor: default; }

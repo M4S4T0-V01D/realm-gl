@@ -152,7 +152,9 @@ export function setLanguage(element: HTMLElement, language: string) {
   current = LANGUAGES.some(lang => lang.id === language) ? language : "en";
   if (typeof document !== "undefined") document.documentElement.lang = current;
   element.dataset.lang = current;
-  if (root !== element) {
+  // In English there's nothing to translate: put back any English a language left, then stop watching (it costs).
+  if (current === "en") { walk(element); observer?.disconnect(); observer = null; root = null; return; }
+  if (root !== element || !observer) {
     observer?.disconnect();
     root = element;
     observer = new MutationObserver(records => {

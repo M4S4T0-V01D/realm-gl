@@ -227,15 +227,22 @@ try {
       const mid = await state(() => ({ x: window.__realm.game().player.x, y: window.__realm.game().player.y }));
       assert(mid.x - open.from.x >= 2 && Math.abs(mid.y - open.from.y) <= 1, `holding the button walks towards the pointer (${mid.x - open.from.x}, ${mid.y - open.from.y})`);
       const back = await screenOf(mid.x - 8, mid.y);
-      await page.mouse.move(back.x, back.y, { steps: 4 }); await page.waitForTimeout(1500);
-      const turnedBack = await state(() => ({ x: window.__realm.game().player.x, y: window.__realm.game().player.y }));
-      assert(turnedBack.x < mid.x, `moving the pointer steers the walk (${turnedBack.x - mid.x})`);
+      await page.mouse.move(back.x, back.y, { steps: 4 });
+      // (It may take a step or two more the old way before it turns, on a slow machine.)
+      let peak = mid.x, turnedBack = mid;
+      for (let k = 0; k < 20; k++) {
+        await page.waitForTimeout(200);
+        turnedBack = await state(() => ({ x: window.__realm.game().player.x, y: window.__realm.game().player.y }));
+        peak = Math.max(peak, turnedBack.x);
+        if (turnedBack.x < peak) break;
+      }
+      assert(turnedBack.x < peak, `moving the pointer steers the walk (${turnedBack.x - peak})`);
       await page.mouse.up(); await page.waitForTimeout(700);
       const after = await state(() => ({ x: window.__realm.game().player.x, y: window.__realm.game().player.y }));
       await page.waitForTimeout(1200);
       const still = await state(() => ({ x: window.__realm.game().player.x, y: window.__realm.game().player.y }));
       assert(still.x === after.x && still.y === after.y, "letting go stops the walk");
-      console.log(`hold to walk: ${mid.x - open.from.x} tiles towards the pointer, steered back ${mid.x - turnedBack.x}, stopped on release`);
+      console.log(`hold to walk: ${mid.x - open.from.x} tiles towards the pointer, steered back ${peak - turnedBack.x}, stopped on release`);
       await teleport(start.x, start.y);
     } else console.log("hold to walk: no open ground near the start, skipped");
   }

@@ -207,13 +207,13 @@ try {
   // when the pointer moves, and stops when you let go.
   {
     const start = await state(() => ({ x: window.__realm.game().player.x, y: window.__realm.game().player.y }));
-    // Somewhere near with an open row of ground (no objects, people, walls, water or cliffs) to walk along.
+    // Somewhere near with an open band of ground three rows deep (no objects, people, walls, water or cliffs) to walk along.
     const spot = await state(() => {
       const g = window.__realm.game(), w = g.world, p = g.player, W = w.tiles.length / 640;
       const free = (x, y) => w.objectAt[y * W + x] < 0 && ![0, 6, 7, 15, 16, 21].includes(w.tiles[y * W + x]) && !g.npcs.some(n => n.x === x && n.y === y);
       for (let r = 0; r < 60; r++) for (let dy = -r; dy <= r; dy++) for (const dx of [-r, r]) {
         const x = p.x + dx, y = p.y + dy; let clear = true;
-        for (let i = -9; i <= 9 && clear; i++) clear = free(x + i, y);
+        for (let j = -1; j <= 1 && clear; j++) for (let i = -9; i <= 9 && clear; i++) clear = free(x + i, y + j);
         if (clear) return { x, y };
       }
       return null;
@@ -226,7 +226,7 @@ try {
       await page.waitForTimeout(1500);
       const mid = await state(() => ({ x: window.__realm.game().player.x, y: window.__realm.game().player.y }));
       assert(mid.x - open.from.x >= 2 && Math.abs(mid.y - open.from.y) <= 1, `holding the button walks towards the pointer (${mid.x - open.from.x}, ${mid.y - open.from.y})`);
-      const back = await screenOf(mid.x - 6, mid.y);
+      const back = await screenOf(mid.x - 6, open.from.y);
       await page.mouse.move(back.x, back.y, { steps: 4 });
       // (It may take a step or two more the old way before it turns, on a slow machine: up to eight seconds.)
       let peak = mid.x, turnedBack = mid;

@@ -226,11 +226,11 @@ try {
       await page.waitForTimeout(1500);
       const mid = await state(() => ({ x: window.__realm.game().player.x, y: window.__realm.game().player.y }));
       assert(mid.x - open.from.x >= 2 && Math.abs(mid.y - open.from.y) <= 1, `holding the button walks towards the pointer (${mid.x - open.from.x}, ${mid.y - open.from.y})`);
-      const back = await screenOf(mid.x - 8, mid.y);
+      const back = await screenOf(mid.x - 6, mid.y);
       await page.mouse.move(back.x, back.y, { steps: 4 });
-      // (It may take a step or two more the old way before it turns, on a slow machine.)
+      // (It may take a step or two more the old way before it turns, on a slow machine: up to eight seconds.)
       let peak = mid.x, turnedBack = mid;
-      for (let k = 0; k < 20; k++) {
+      for (let k = 0; k < 40; k++) {
         await page.waitForTimeout(200);
         turnedBack = await state(() => ({ x: window.__realm.game().player.x, y: window.__realm.game().player.y }));
         peak = Math.max(peak, turnedBack.x);

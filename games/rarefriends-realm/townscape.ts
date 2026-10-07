@@ -85,6 +85,17 @@ export function growVillages(ctx: GenContext, t: Tools, places: World["places"])
   };
   for (const village of villages) {
     const region = ctx.region[tileIndex(village.x, village.y)];
+    // Where the village's people can walk to (round a river, over its bridges): a home is only built there, never on the
+    // far bank of water with no way across.
+    const reach = new Set<number>(), queue: [number, number][] = [[village.x, village.y]];
+    reach.add(tileIndex(village.x, village.y));
+    while (queue.length) {
+      const [x, y] = queue.pop()!;
+      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+        if (Math.abs(nx - village.x) > 48 || Math.abs(ny - village.y) > 48 || !inBounds(nx, ny) || reach.has(tileIndex(nx, ny)) || !ground().walkable.has(get(nx, ny))) continue;
+        reach.add(tileIndex(nx, ny)); queue.push([nx, ny]);
+      }
+    }
     let built = 0;
     for (let r = 7; r <= 38 && built < HOMES_PER_VILLAGE; r++) {
       const steps = r * 3, turn = hash(village.x, village.y, 7) * Math.PI * 2;
@@ -92,7 +103,7 @@ export function growVillages(ctx: GenContext, t: Tools, places: World["places"])
         const a = turn + k / steps * Math.PI * 2, mx = Math.round(village.x + Math.cos(a) * r), my = Math.round(village.y + Math.sin(a) * r * 0.8);
         const look = Math.floor(hash(mx, my, 11) * 1000), w = 7 + (look % 3), h = 6 + (Math.floor(look / 3) % 2);
         const x0 = mx - Math.floor(w / 2), y0 = my - Math.floor(h / 2), x1 = x0 + w, y1 = y0 + h;
-        if (!fits(x0, y0, x1, y1, region)) continue;
+        if (!reach.has(tileIndex(Math.round((x0 + x1) / 2), Math.round((y0 + y1) / 2))) || !fits(x0, y0, x1, y1, region)) continue;
         clearSite(x0, y0, x1, y1);
         // The door on the side facing the village's middle.
         const dx = village.x - (x0 + x1) / 2, dy = village.y - (y0 + y1) / 2;

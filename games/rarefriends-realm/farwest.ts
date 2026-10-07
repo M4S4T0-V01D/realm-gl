@@ -174,7 +174,8 @@ export function buildFarWest(ctx: GenContext, t: Tools, places: World["places"],
   road([[160, 90], [210, 76], [250, 72], [280, 72]], 2.2, T.GRAVEL);                                                      // the Rangers' track
   road([[132, 80], [100, 74], [70, 66], [48, 60]], 2, T.GRAVEL);                                                          // the pilgrims' track into the Silent Peaks
   road([[330, 194], [336, 180], [338, 172]], 2.2);                                                                        // to Candlemere
-  road([[143, 190], [120, 196], [96, 210], [70, 236], [44, 254]], 2.2, T.GRAVEL);                                         // the West Road to the coast
+  road([[143, 190], [120, 196], [96, 210], [70, 236], [44, 254]], 2.2, T.GRAVEL);
+  { const [bx, by] = FAR_PLACES.barkholm; road([[bx - 2, by + 8], [bx - 9, by + 10], [bx - 26, by + 10]], 2.2, T.GRAVEL); }      // Barkholm's lane west over the Hush, on a plank bridge                                         // the West Road to the coast
   road([[300, 191], [312, 240], [320, 290], [322, 312]], 2.2, T.GRAVEL);                                                  // the Muster Road, the Crownlands to Fort Ordinance
 
   // ---------- 5. The city of Raria: walls, gates, the palace in the exact centre, and every office of the Law round it ----------
@@ -552,6 +553,8 @@ export function buildFarWest(ctx: GenContext, t: Tools, places: World["places"],
     ground(vx, vy, 10, 7, T.PATH, 2);
     for (const [hx0, hy0, door] of [[vx - 9, vy - 6, "s"], [vx + 2, vy - 6, "s"], [vx - 9, vy + 2, "n"]] as const) { building(hx0, hy0, hx0 + 6, hy0 + 4, door, T.WOOD, undefined, { name: "A Barkholm house", color: "#5a3a2a", walls: "plank", chimney: true }); decor(hx0 + 1, door === "s" ? hy0 + 1 : hy0 + 3, "bed"); }
     npc("barkholm_elder", vx + 5, vy + 4); add({ kind: "well", x: vx, y: vy, blocks: true, name: "Well" }); for (const [dx, dy] of [[-3, 1], [3, -1], [6, 2]] as const) npc("barkreach_villager", vx + dx, vy + dy, 3);
+    // A glade over the bridge on the Hush's far bank, where the village has grown (its new homes go up there).
+    ground(vx - 28, vy + 10, 7, 9, null);
     sign(vx + 2, vy + 7, "Barkholm", "BARKHOLM. The wood's own village. The Crown has asked for a tithe here twice. The wood answered both times.", "redwood_logs");
     // The hidden glade in the Heartwood: cliffs all round, one way in, a statue nobody put there.
     const [lx, ly] = FAR_PLACES.hidden_glade;

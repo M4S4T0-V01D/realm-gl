@@ -4,6 +4,11 @@
  */
 export type Update = { id: number; date: string; title: string; items: readonly string[] };
 export const UPDATES: readonly Update[] = [
+  { id: 86, date: "2026-10-07", title: "Hold to walk, a bridge to Barkholm's far bank, and a bank at the Ring", items: [
+    "Hold to walk: press the left mouse button on the ground and keep it held, and your Friend keeps walking towards the pointer. Steer with the mouse, and let go to stop. A quick click still walks to the spot, and holding after clicking a creature, a person or a tree never walks you away from it.",
+    "Barkholm's new homes on the far bank of the Hush can be reached at last: a gravel lane runs west from the village over a plank bridge to a glade among the ironbarks, where they stand. Villages only ever grow where their people can walk now.",
+    "The Rare Friends Ring has a bank. The Ring's Bank opens off the concourse beside the gate, in marble, with three booths and a banker, so you can bank a purse between matches.",
+  ] },
   { id: 85, date: "2026-10-06", title: "Realm-GL: light and shadow on your graphics card, and twice the frame rate", items: [
     "The light itself is worked out on your graphics card now. The ground is lit straight from the Realm's light map, so lamps, torches, fires and the sky light it smoothly wherever you look.",
     "The sun's shadows are drawn there too: every building, wall, tree, rock, creature and Friend throws its shadow across the ground, and the clouds' shadows drift over the land. Lit windows glow on the card, and the haze in the distance is worked out pixel by pixel.",

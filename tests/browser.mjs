@@ -203,6 +203,43 @@ try {
   assert(Math.abs((await state(() => window.__realm.camera().pitch)) - turned.pitch) < 0.01, "…and leaves the tilt alone");
   await state(() => window.__realm.view(0.8, 0.5, 0));
 
+  // Hold to walk: press on open ground and keep the button down: your Friend keeps walking towards the pointer, turns
+  // when the pointer moves, and stops when you let go.
+  {
+    const start = await state(() => ({ x: window.__realm.game().player.x, y: window.__realm.game().player.y }));
+    // Somewhere near with an open row of ground (no objects, people, walls, water or cliffs) to walk along.
+    const spot = await state(() => {
+      const g = window.__realm.game(), w = g.world, p = g.player, W = w.tiles.length / 640;
+      const free = (x, y) => w.objectAt[y * W + x] < 0 && ![0, 6, 7, 15, 16, 21].includes(w.tiles[y * W + x]) && !g.npcs.some(n => n.x === x && n.y === y);
+      for (let r = 0; r < 60; r++) for (let dy = -r; dy <= r; dy++) for (const dx of [-r, r]) {
+        const x = p.x + dx, y = p.y + dy; let clear = true;
+        for (let i = -9; i <= 9 && clear; i++) clear = free(x + i, y);
+        if (clear) return { x, y };
+      }
+      return null;
+    });
+    if (spot) await teleport(spot.x, spot.y);
+    const open = spot && { x: spot.x + 7, y: spot.y, from: spot };
+    if (open) {
+      const target = await screenOf(open.x, open.y);
+      await page.mouse.move(target.x, target.y); await page.mouse.down();
+      await page.waitForTimeout(1500);
+      const mid = await state(() => ({ x: window.__realm.game().player.x, y: window.__realm.game().player.y }));
+      assert(mid.x - open.from.x >= 2 && Math.abs(mid.y - open.from.y) <= 1, `holding the button walks towards the pointer (${mid.x - open.from.x}, ${mid.y - open.from.y})`);
+      const back = await screenOf(mid.x - 8, mid.y);
+      await page.mouse.move(back.x, back.y, { steps: 4 }); await page.waitForTimeout(1500);
+      const turnedBack = await state(() => ({ x: window.__realm.game().player.x, y: window.__realm.game().player.y }));
+      assert(turnedBack.x < mid.x, `moving the pointer steers the walk (${turnedBack.x - mid.x})`);
+      await page.mouse.up(); await page.waitForTimeout(700);
+      const after = await state(() => ({ x: window.__realm.game().player.x, y: window.__realm.game().player.y }));
+      await page.waitForTimeout(1200);
+      const still = await state(() => ({ x: window.__realm.game().player.x, y: window.__realm.game().player.y }));
+      assert(still.x === after.x && still.y === after.y, "letting go stops the walk");
+      console.log(`hold to walk: ${mid.x - open.from.x} tiles towards the pointer, steered back ${mid.x - turnedBack.x}, stopped on release`);
+      await teleport(start.x, start.y);
+    } else console.log("hold to walk: no open ground near the start, skipped");
+  }
+
   // ---------- Panels ----------
   await state(() => { const g = window.__realm.game(), p = g.player, table = [0, 0, 83, 174, 276, 388, 512, 650, 801, 969, 1154, 1358, 1584, 1833, 2107, 2411, 2746, 3115, 3523, 3973, 4470, 5018, 5624, 6291, 7028, 7842, 8740, 9730, 10824, 12031, 13363];
     Object.assign(p.xp, { attack: table[24], strength: table[26], defence: table[21], hitpoints: table[25], woodcutting: table[18], fishing: table[22], mining: table[16], smithing: table[12], cooking: table[20], firemaking: table[15], magic: table[13], prayer: table[9], crafting: table[7], thieving: table[11], agility: table[10] });

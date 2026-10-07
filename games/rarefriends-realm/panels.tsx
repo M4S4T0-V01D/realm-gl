@@ -1347,6 +1347,7 @@ export function HelpModal({ onClose, onFeedback }: { onClose: () => void; onFeed
       {onFeedback && <button type="button" className="realm-wide" onClick={onFeedback}>💬 Found a bug, or have an idea? Send feedback</button>}
       <ul className="realm-help">
         <li><b>Left-click</b> does the first option (shown top-left). <b>Right-click</b> (or long-press) for every option.</li>
+        <li><b>Hold the left button</b> on the ground to keep walking towards the pointer: steer with the mouse, let go to stop.</li>
         <li><b>WASD</b> walks. <b>← →</b> turn the camera, <b>↑ ↓</b> tilt it from overhead right down to ground level; or <b>drag with the scroll wheel held</b>. Scroll zooms in close (up to 3×). Click the <b>compass</b> to face north.</li>
         <li><b>R</b> toggles run, <b>C</b> sneaks. <b>Scroll</b> zooms. <b>M</b> opens the world map.</li>
         <li><b>F1–F9</b> or the icons switch tabs. <b>Enter</b> to chat. <b>Space</b> continues dialogue, <b>1–5</b> pick options. <b>Esc</b> closes.</li>

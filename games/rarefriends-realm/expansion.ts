@@ -800,6 +800,16 @@ export function buildExpansion(ctx: GenContext, t: Tools, seed: number) {
       put1(x1 - 1, y0 + 1, "target", "A practice target, well shot"); put1(x1 - 1, y1 - 1, "target", "A practice target, well shot");
       put1(x0 + 1, y1 - 1, "logpile", "Staves of yew and willow, seasoning"); put1(x0 + 3, y1 - 1, "crate", "Arrow shafts, by the bundle"); put1(x0 + 1, y0 + 4, "table", "A fletching bench: feathers, glue, a knife"); put1(x1 - 3, y0 + 4, "hay", "Straw butts");
     });
+    // South-south-west, by the gate: the Ring's bank, so a fighter can bank a purse between matches: three booths across
+    // the room facing the door, the banker behind them, the strongroom's chests and the Ring's banners.
+    room(Math.PI * 2 / 3, 11, 9, "The Ring's Bank", "#8f9cb2", T.STONE, "banker", ["The Ring's Bank", "THE RING'S BANK. Bank your purse before you bet it. Nothing leaves the vault without its owner.", "coins"], (x0, y0, x1, y1, door) => {
+      const across = door === "n" || door === "s", far = door === "n" ? y1 - 2 : door === "s" ? y0 + 2 : door === "w" ? x1 - 2 : x0 + 2;
+      const mid = across ? Math.round((x0 + x1) / 2) : Math.round((y0 + y1) / 2);
+      for (const k of [-2, 0, 2]) { const [bx, by] = across ? [mid + k, far] : [far, mid + k]; if (free(bx, by)) add({ kind: "bank", x: bx, y: by, blocks: true, name: "Bank booth" }); }
+      const corners: [number, number][] = [[x0 + 1, y0 + 1], [x1 - 1, y0 + 1], [x0 + 1, y1 - 1], [x1 - 1, y1 - 1]];
+      corners.forEach(([x, y], i) => put1(x, y, i % 2 ? "chest" : "lamp", i % 2 ? "A strongbox, bolted to the floor" : undefined));
+      put1(across ? x0 + 1 : mid, across ? mid : y0 + 1, "banner", "The Ring's banner"); put1(across ? x1 - 1 : mid, across ? mid : y1 - 1, "banner", "The Ring's banner");
+    });
     // North-north-east: Hilde Edgewright's blade shop, coin-paid weapons: racks of blades on every wall, the two-handers
     // on stands, a grindstone, a straw dummy to try an edge on, and an anvil to put one back.
     room(Math.PI * 5 / 3, 11, 9, "Edgewright's Blades", "#8a5e52", T.STONE, "ring_weaponsmith", ["Edgewright's Blades", "EDGEWRIGHT'S BLADES. Daggers to war hammers, pewter to glimmer, for coin. Every edge honed twice.", "glimmer_greatsword"], (x0, y0, x1, y1) => {

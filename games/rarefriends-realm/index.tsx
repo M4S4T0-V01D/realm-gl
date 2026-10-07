@@ -513,8 +513,8 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
             stepMarks(state.world, state.player.prev, state.player, !!state.player.mount, reducedMotion);
           }
           ambience(state);
-          // Held keys walk, turned to match the camera.
-          setHeld(state, heldDirection(held.current, camera.current.angle));
+          // Held keys walk, turned to match the camera (or the held mouse button, towards the pointer).
+          setHeld(state, mouseDirection() ?? heldDirection(held.current, camera.current.angle));
           refresh();
         }
       }
@@ -526,6 +526,12 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
       } else {
         // Arrow keys turn and tilt; the compass eases back to north.
         const keys = held.current, cam = camera.current;
+        // Hold to walk: once the button's been held a moment, walk towards the pointer (it's turned with the camera every frame).
+        const hold = mouseWalk.current;
+        if (hold && !isPaused) {
+          if (!hold.on && now - hold.at > 260) hold.on = true;
+          if (hold.on) setHeld(state, mouseDirection() ?? heldDirection(keys, cam.angle));
+        }
         if (!isPaused) {
           const turn = (keys.has("arrowright") ? 1 : 0) - (keys.has("arrowleft") ? 1 : 0), tilt = (keys.has("arrowup") ? 1 : 0) - (keys.has("arrowdown") ? 1 : 0);
           if (turn || tilt) cameraGoal.current = null;
@@ -599,7 +605,7 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
     frame = requestAnimationFrame(loop);
     // In the background (a hidden tab) frames stop, so a picture-in-picture window keeps going on a timer instead.
     const timer = setInterval(() => { if (document.hidden && document.pictureInPictureElement) loop(performance.now(), true); }, 50);
-    const stop = () => { held.current.clear(); if (game.current) setHeld(game.current, null); };
+    const stop = () => { held.current.clear(); mouseWalk.current = null; if (game.current) setHeld(game.current, null); };
     window.addEventListener("blur", stop); document.addEventListener("visibilitychange", stop);
     return () => { cancelAnimationFrame(frame); clearInterval(timer); window.removeEventListener("blur", stop); document.removeEventListener("visibilitychange", stop); };
   }, [phase, reducedMotion, refresh]);
@@ -723,11 +729,36 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
     const p = logicalPoint(event.clientX, event.clientY);
     if (event.button === 1) { event.preventDefault(); orbit.current = { x: p.x, y: p.y, angle: camera.current.angle, pitch: camera.current.pitch }; canvas.current?.setPointerCapture(event.pointerId); return; }
     if (event.pointerType === "touch") { longPress(() => openContext(p.x, p.y)); touchStart.current = { ...p, at: performance.now() }; return; }
-    if (event.button === 0) { setMenu(null); act(p.x, p.y); }
+    if (event.button === 0) {
+      setMenu(null);
+      // (Only a click that walks starts a hold-to-walk: holding after clicking a creature, a person or a tree doesn't.)
+      const walks = optionsAt(p.x, p.y)[0]?.verb === "Walk here";
+      act(p.x, p.y);
+      if (walks && event.pointerType === "mouse") { mouseWalk.current = { at: performance.now(), on: false }; pointer.current = p; canvas.current?.setPointerCapture(event.pointerId); }
+    }
   };
   const touchStart = useRef<{ x: number; y: number; at: number } | null>(null);
+  /**
+   * Hold to walk: a left click on open ground walks there; keep the button held and, after a moment, your Friend keeps
+   * walking towards the pointer, wherever you move it, until you let go (or bring the pointer back onto your Friend).
+   */
+  const mouseWalk = useRef<{ at: number; on: boolean } | null>(null);
+  const mouseDirection = (): { dx: number; dy: number } | null => {
+    const state = game.current, p = pointer.current, cam = camera.current;
+    if (!mouseWalk.current?.on || !state || !p) return null;
+    const at = realPoint(state.world, state.player.x, state.player.y), me = toScreen(cam, at.x, at.y), sx = p.x - me.x, sy = p.y - (me.y - 18 * cam.zoom);
+    if (Math.hypot(sx, sy) < 20 * cam.zoom) return null;
+    // Screen → world, as held keys are turned: through the projection, then back through the camera's angle.
+    const a = sx / (32 * cam.zoom), b = sy / (32 * cam.pitch * cam.zoom), rx = (a + b) / 2, ry = (b - a) / 2, c = Math.cos(-cam.angle), n = Math.sin(-cam.angle);
+    return { dx: rx * c - ry * n, dy: rx * n + ry * c };
+  };
+  const endMouseWalk = () => {
+    const was = mouseWalk.current?.on; mouseWalk.current = null;
+    if (was && game.current) setHeld(game.current, heldDirection(held.current, camera.current.angle));
+  };
   const onPointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (event.button === 1) { orbit.current = null; return; }
+    if (event.button === 0 && mouseWalk.current) { endMouseWalk(); return; }
     if (event.pointerType !== "touch" || !touchStart.current) return;
     const start = touchStart.current; touchStart.current = null; cancelLongPress();
     if (performance.now() - start.at < 450 && !menu) act(start.x, start.y);
@@ -949,7 +980,7 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
         <canvas ref={glCanvas} className="realm-gl" aria-hidden="true" />
         <canvas ref={canvas} className="realm-view" tabIndex={0} aria-label="The Realm. Left-click to act, right-click for options, WASD to walk."
           style={{ width: size.width, height: size.height }}
-          onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={() => { cancelLongPress(); orbit.current = null; }}
+          onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={() => { cancelLongPress(); orbit.current = null; endMouseWalk(); }}
           onMouseDown={event => { if (event.button === 1) event.preventDefault(); }} onAuxClick={event => event.preventDefault()}
           onPointerLeave={() => { hoverTile.current = null; setHover(""); }}
           onContextMenu={event => { event.preventDefault(); const p = logicalPoint(event.clientX, event.clientY); openContext(p.x, p.y); }}

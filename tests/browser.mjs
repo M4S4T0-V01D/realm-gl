@@ -464,6 +464,12 @@ try {
     assert.equal(await state(() => window.__realm.perf().low), true, "Settings → Graphics → Low");
     await game.getByRole("radio", { name: "High" }).click();
     assert.equal(await state(() => window.__realm.perf().low), false, "Settings → Graphics → High");
+    // Languages: switch from one to another, and back to English, as many times as you like without reloading.
+    const music = () => state(() => document.querySelector(".realm-settings h3")?.firstChild?.textContent?.trim());
+    for (const [lang, word] of [["ja", "音楽"], ["ko", "음악"], ["uk", "Музика"], ["ja", "音楽"], ["en", "Music"], ["es", "Música"], ["auto", "Music"]]) {
+      await game.locator(".realm-settings .realm-language select").selectOption(lang); await page.waitForTimeout(250);
+      assert.equal(await music(), word, `Settings → Language → ${lang} shows "${word}"`);
+    }
   }
 
   // ---------- The daily popup: claim the streak, see the challenges, read the update log ----------

@@ -4,6 +4,10 @@
  */
 export type Update = { id: number; date: string; title: string; items: readonly string[] };
 export const UPDATES: readonly Update[] = [
+  { id: 88, date: "2026-10-07", title: "Ukrainian, and switching languages fixed", items: [
+    "Ukrainian joins them: Українська, in the 🌐 Language picker, and chosen for you if your browser speaks it.",
+    "Fixed: switching from one language to another (Japanese to Korean, say) now changes everything over straight away, as many times as you like, without reloading.",
+  ] },
   { id: 87, date: "2026-10-07", title: "The Realm in twelve languages", items: [
     "The Realm speaks Japanese, Korean, Simplified and Traditional Chinese, Vietnamese, Indonesian, Thai, Turkish, Spanish, Brazilian Portuguese and Russian, as well as English.",
     "It starts in your browser's language. Change it any time with 🌐 Language on the title screen or at the top of Settings.",

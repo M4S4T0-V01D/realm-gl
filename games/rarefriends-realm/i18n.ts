@@ -18,6 +18,7 @@ import { tr } from "./lang/tr.ts";
 import { es } from "./lang/es.ts";
 import { ptBR } from "./lang/pt-BR.ts";
 import { ru } from "./lang/ru.ts";
+import { uk } from "./lang/uk.ts";
 
 export type Dictionary = Readonly<Record<string, string>>;
 /** The languages, by their own names. */
@@ -34,6 +35,7 @@ export const LANGUAGES: readonly { id: string; name: string; dictionary: Diction
   { id: "es", name: "Español", dictionary: es },
   { id: "pt-BR", name: "Português (Brasil)", dictionary: ptBR },
   { id: "ru", name: "Русский", dictionary: ru },
+  { id: "uk", name: "Українська", dictionary: uk },
 ];
 
 /** The language this browser prefers, of the ones there are (English if none). */
@@ -111,18 +113,22 @@ export const t = (text: string) => translate(text, current);
 // ---------- Over the page ----------
 const ATTRIBUTES = ["title", "aria-label", "placeholder"] as const;
 let current = "en", root: HTMLElement | null = null, observer: MutationObserver | null = null;
-/** The English each translated text and attribute had (so it can be translated again, or put back). */
-const englishText = new WeakMap<Text, string>(), englishAttr = new WeakMap<Element, Map<string, string>>();
+/**
+ * The English each text and attribute had, and what we last put there (so it can be translated again, into another
+ * language, or put back; anything else found there is the game's own new English).
+ */
+type Seen = { en: string; shown: string };
+const englishText = new WeakMap<Text, Seen>(), englishAttr = new WeakMap<Element, Map<string, Seen>>();
 let writing = false;
 /** Not translated: players' own words (chat lines of public and private talk, names typed in), and anything marked so. */
 const untouchable = (el: Element | null) => !!el?.closest("[data-no-translate], .chat-public, .chat-private, input, textarea, [contenteditable]");
 function textNode(node: Text) {
   if (untouchable(node.parentElement)) return;
   const known = englishText.get(node);
-  // A text the game has changed since we translated it is new English.
-  const english = known !== undefined && (node.data === translate(known, current) || node.data === known) ? known : node.data;
-  englishText.set(node, english);
+  // A text the game has changed since we last wrote it is new English.
+  const english = known !== undefined && node.data === known.shown ? known.en : node.data;
   const next = current === "en" ? english : translate(english, current);
+  englishText.set(node, { en: english, shown: next });
   if (node.data !== next) { writing = true; node.data = next; writing = false; }
 }
 function attributes(el: Element) {
@@ -132,10 +138,10 @@ function attributes(el: Element) {
     const value = el.getAttribute(name);
     if (value === null) continue;
     const known = saved?.get(name);
-    const english = known !== undefined && (value === translate(known, current) || value === known) ? known : value;
+    const english = known !== undefined && value === known.shown ? known.en : value;
     if (!saved) { saved = new Map(); englishAttr.set(el, saved); }
-    saved.set(name, english);
     const next = current === "en" ? english : translate(english, current);
+    saved.set(name, { en: english, shown: next });
     if (value !== next) { writing = true; el.setAttribute(name, next); writing = false; }
   }
 }

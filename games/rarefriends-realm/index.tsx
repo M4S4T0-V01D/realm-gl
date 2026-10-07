@@ -83,6 +83,8 @@ const perf = { ms: 0, frames: 0, interval: 16.7, lastFrame: 0 };
  * crisply either way, and 1.5× has about half the pixels of 2× to light and shade).
  */
 const isLow = (settings: Settings) => settings.graphics === "low";
+/** With WebGL, Low draws the world (and the canvas layer over it) at three quarters of the screen's pixels, scaled up crisply; the interface stays sharp. */
+const LOW_WORLD_SCALE = 0.75;
 /** Custom graphics' knobs, when they're in use. */
 const customOf = (settings: Settings) => settings.graphics === "custom" ? settings.custom ?? customFrom(HIGH_QUALITY) : null;
 /** Custom graphics as saved, checked knob by knob (anything missing or odd is High's). */
@@ -185,7 +187,7 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
       const low = isLow(live.current.settings);
       const custom = customOf(live.current.settings);
       if (view) { const ratio = custom ? Math.max(0.5, Math.min(2, custom.resolution * (custom.adaptive ? Math.min(1, adaptive.cap / 1.5) : 1))) : low ? 1 : Math.min(window.devicePixelRatio || 1, adaptive.cap); view.width = Math.round(logical.width * scale * ratio); view.height = Math.round(logical.height * scale * ratio); }
-      if (view && glCanvas.current) { glCanvas.current.width = view.width; glCanvas.current.height = view.height; }
+      if (view && glCanvas.current) { const k = low ? LOW_WORLD_SCALE : 1; glCanvas.current.width = Math.round(view.width * k); glCanvas.current.height = Math.round(view.height * k); }
     };
     const observer = new ResizeObserver(measure); observer.observe(node); measure(); resizeRef.current = measure;
     return () => observer.disconnect();
@@ -557,8 +559,9 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
       const custom = customOf(live.current.settings), useGl = !!gpu && custom?.webgl !== false;
       if (glCanvas.current) glCanvas.current.style.visibility = useGl ? "" : "hidden";
       if (layer && layerCtx && useGl) {
-        if (layer.width !== node.width || layer.height !== node.height) { layer.width = node.width; layer.height = node.height; }
-        layerCtx.setTransform(ratio, 0, 0, ratio, 0, 0); layerCtx.imageSmoothingEnabled = false;
+        const k = isLow(live.current.settings) ? LOW_WORLD_SCALE : 1, lw = Math.round(node.width * k), lh = Math.round(node.height * k);
+        if (layer.width !== lw || layer.height !== lh) { layer.width = lw; layer.height = lh; }
+        layerCtx.setTransform(ratio * k, 0, 0, ratio * k, 0, 0); layerCtx.imageSmoothingEnabled = false;
         ctx.clearRect(0, 0, VIEW.width, VIEW.height);
       }
       const drawStart = performance.now();
@@ -982,7 +985,7 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
       data-total={player ? totalLevel(player) : 0} data-hp={player?.hp ?? 0} data-quests={state ? questPoints(state) : 0} data-hosted={hosted}
       onContextMenu={event => event.preventDefault()}>
       <div ref={stage} className="realm-stage" style={{ width: size.width, height: size.height, left: `calc(50% - ${size.width * size.scale / 2}px)`, top: `calc(50% - ${size.height * size.scale / 2}px)`, transform: `scale(${size.scale})`, "--toolbar": `${Math.ceil(54 / size.scale)}px` } as CSSProperties}>
-        <canvas ref={glCanvas} className="realm-gl" aria-hidden="true" />
+        <canvas ref={glCanvas} className="realm-gl" aria-hidden="true" style={{ width: size.width, height: size.height }} />
         <canvas ref={canvas} className="realm-view" tabIndex={0} aria-label="The Realm. Left-click to act, right-click for options, WASD to walk."
           style={{ width: size.width, height: size.height }}
           onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={() => { cancelLongPress(); orbit.current = null; endMouseWalk(); }}

@@ -4,6 +4,12 @@
  */
 export type Update = { id: number; date: string; title: string; items: readonly string[] };
 export const UPDATES: readonly Update[] = [
+  { id: 89, date: "2026-10-07", title: "Item names, the skill guides and tips in every language", items: [
+    "Every item's name is translated in all twelve languages, wherever it shows: right-click menus, the bank, shops and the recipe book.",
+    "The skill guides and the recipe book are translated in full: what each level unlocks, what it does, where it's made and what it takes.",
+    "So are the tips: the Realm Guide's advice, First steps, your Friend family's perk, the spellbook, and the world boss and work orders in the Realm Daily.",
+    "Dialogue and quest text are still in English, and are next.",
+  ] },
   { id: 88, date: "2026-10-07", title: "Ukrainian, and switching languages fixed", items: [
     "Ukrainian joins them: Українська, in the 🌐 Language picker, and chosen for you if your browser speaks it.",
     "Fixed: switching from one language to another (Japanese to Korean, say) now changes everything over straight away, as many times as you like, without reloading.",

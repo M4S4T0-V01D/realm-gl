@@ -19,6 +19,7 @@ import { es } from "./lang/es.ts";
 import { ptBR } from "./lang/pt-BR.ts";
 import { ru } from "./lang/ru.ts";
 import { uk } from "./lang/uk.ts";
+import { TABLE, TABLE_LANGUAGES } from "./lang/table.ts";
 
 export type Dictionary = Readonly<Record<string, string>>;
 /** The languages, by their own names. */
@@ -55,47 +56,115 @@ export function browserLanguage(): string {
 export const languageOf = (setting: string | undefined) => !setting || setting === "auto" ? browserLanguage() : LANGUAGES.some(lang => lang.id === setting) ? setting : "en";
 
 // ---------- Translating ----------
-type Compiled = { phrases: Map<string, string>; templates: { pattern: RegExp; names: string[]; to: string }[] };
+type Template = { pattern: RegExp; names: string[]; to: string; strict: boolean; bare: boolean; literal: number };
+type Compiled = { phrases: Map<string, string>; templates: Template[]; cache: Map<string, string> };
 const compiled = new Map<string, Compiled>();
+/** A placeholder named n, n2… stands for a number only ("{n} bars"), name, name2… for a name left as it is; any other ({item}) for any text. */
+const NUMBER = /^n\d*$/, NAME = /^name\d*$/;
 function compile(language: string): Compiled | null {
   const dictionary = LANGUAGES.find(lang => lang.id === language)?.dictionary;
   if (!dictionary) return null;
   let done = compiled.get(language);
   if (done) return done;
-  done = { phrases: new Map(), templates: [] };
-  for (const [from, to] of Object.entries(dictionary)) {
-    if (!/\{\w+\}/.test(from)) { done.phrases.set(from, to); continue; }
+  done = { phrases: new Map(), templates: [], cache: new Map() };
+  // The game's own interface first, then the table every language shares (items, the skill guides, recipes and tips: lang/table.ts).
+  const column = TABLE_LANGUAGES.indexOf(language as typeof TABLE_LANGUAGES[number]);
+  const entries = [...Object.entries(dictionary).map(([from, to]) => [from, to, false] as const),
+    ...(column < 0 ? [] : Object.entries(TABLE).map(([from, row]) => [from, row[column], true] as const))];
+  for (const [from, to, shared] of entries) {
+    if (!/\{\w+\}/.test(from)) { if (!done.phrases.has(from)) done.phrases.set(from, to); continue; }
     const names: string[] = [];
-    const source = from.split(/(\{\w+\})/).map(part => { const m = /^\{(\w+)\}$/.exec(part); if (!m) return part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); names.push(m[1]); return "(.+?)"; }).join("");
-    done.templates.push({ pattern: new RegExp(`^${source}$`), names, to });
+    const source = from.split(/(\{\w+\})/).map(part => {
+      const m = /^\{(\w+)\}$/.exec(part);
+      if (!m) return part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      names.push(m[1]);
+      return NUMBER.test(m[1]) ? "([−-]?\\d[\\d,.]*)" : "(.+?)";
+    }).join("");
+    const literal = from.replace(/\{\w+\}/g, "");
+    // A template only applies when every part of it is known if it's nothing but placeholders ("{n} {thing}"), or it's
+    // from the shared table (where a {name} is the one part left as it is: a player's, a Friend family's).
+    const bare = !/\p{L}/u.test(literal);
+    done.templates.push({ pattern: new RegExp(`^${source}$`), names, to, strict: shared || bare, bare, literal: literal.length });
   }
-  // (Longer templates first: the most specific wins.)
-  done.templates.sort((a, b) => b.pattern.source.length - a.pattern.source.length);
+  // The most specific first: the most fixed text, then the fewest placeholders.
+  done.templates.sort((a, b) => b.literal - a.literal || a.names.length - b.names.length);
   compiled.set(language, done);
   return done;
 }
+/** How a language joins a list ("+5 attack, +3 strength"). */
+const LIST: Record<string, string> = { ja: "、", "zh-CN": "、", "zh-TW": "、" };
 /** One piece of text in a language (unchanged if the dictionary doesn't know it). */
-export function translate(text: string, language: string, depth = 0): string {
+export function translate(text: string, language: string): string {
   const c = compile(language);
   if (!c) return text;
+  const cached = c.cache.get(text);
+  if (cached !== undefined) return cached;
+  let out = translated(text, language, c, 0, null);
+  // A line that starts with a capital (or a number) still does when a name moved to the front ("15 pewter arrows").
+  if (/^\s*[\p{Lu}\d]/u.test(text)) out = out.replace(/^(\s*)(\p{Ll})/u, (_, space: string, first: string) => space + (language === "tr" ? first.toLocaleUpperCase("tr") : first.toUpperCase()));
+  if (c.cache.size > 4000) c.cache.clear();
+  c.cache.set(text, out);
+  return out;
+}
+/** The parts of a text a language's dictionary doesn't know (for the tests: what's left in English). */
+export function untranslated(text: string, language: string): string[] {
+  const c = compile(language), missed: string[] = [];
+  if (c) translated(text, language, c, 0, missed);
+  return missed;
+}
+const upperFirst = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+function translated(text: string, language: string, c: Compiled, depth: number, missed: string[] | null): string {
   const lead = /^\s*/.exec(text)![0], tail = /\s*$/.exec(text)![0], core = text.trim();
   if (!core) return text;
   const exact = c.phrases.get(core);
   if (exact !== undefined) return lead + exact + tail;
-  if (depth > 2 || !/[A-Za-z]/.test(core)) return text;
-  for (const { pattern, names, to } of c.templates) {
+  // A name in the middle of a sentence ("a knife on oak logs"): the dictionary has it capitalised.
+  if (/^\p{Ll}/u.test(core)) {
+    const upper = c.phrases.get(upperFirst(core));
+    if (upper !== undefined) return lead + lowerFirst(upper) + tail;
+  }
+  // Numbers and symbols stay as they are.
+  if (!/[A-Za-z]/.test(core)) return text;
+  if (depth > 4) { missed?.push(core); return text; }
+  // A part of the text: whatever of it can't be translated stays in English (and is noted).
+  const part = (piece: string) => translated(piece, language, c, depth + 1, missed);
+  // A list of things ("2 ore + 1 inkcoal", "+5 attack, +3 strength") when every one of them is known.
+  const list = (sep: string, joined: string) => {
+    if (!core.includes(sep)) return null;
+    const trial: string[] = [], parts = core.split(sep).map(piece => translated(piece, language, c, depth + 1, trial));
+    return trial.length ? null : lead + parts.join(joined) + tail;
+  };
+  const sum = list(" + ", " + ");
+  if (sum !== null) return sum;
+  for (const { pattern, names, to, strict, bare } of c.templates) {
     const m = pattern.exec(core);
     if (!m) continue;
+    // ("{n} × {item}" is one thing, not the first of a list.)
+    if (bare && m.slice(1).some(part => part.includes(", "))) continue;
+    if (strict) {
+      // All of it known, or this template isn't the one.
+      const trial: string[] = [], parts = names.map((name, i) => NUMBER.test(name) || NAME.test(name) ? m[i + 1] : translated(m[i + 1], language, c, depth + 1, trial));
+      if (trial.length) continue;
+      let out = to;
+      names.forEach((name, i) => { out = out.split(`{${name}}`).join(parts[i]); });
+      return lead + out + tail;
+    }
     let out = to;
-    names.forEach((name, i) => { out = out.split(`{${name}}`).join(translate(m[i + 1], language, depth + 1)); });
+    names.forEach((name, i) => { out = out.split(`{${name}}`).join(NUMBER.test(name) ? m[i + 1] : part(m[i + 1])); });
     return lead + out + tail;
   }
+  // Pieces of a line ("12 XP · 3 bars · Anvil"), each translated on its own.
+  if (core.includes(" · ")) return lead + core.split(" · ").map(piece => part(piece)).join(" · ") + tail;
   // An action and what it's done to ("Chop down Oak tree"): the action translated, the rest as far as it's known.
   const words = core.split(" ");
   if (words.length <= 8) for (let k = Math.min(3, words.length - 1); k >= 1; k--) {
     const verb = words.slice(0, k).join(" ");
-    if (VERBS.has(verb) && c.phrases.has(verb)) return lead + c.phrases.get(verb)! + " " + translate(words.slice(k).join(" "), language, depth + 1) + tail;
+    if (VERBS.has(verb) && c.phrases.has(verb)) return lead + c.phrases.get(verb)! + " " + part(words.slice(k).join(" ")) + tail;
   }
+  const commas = list(", ", LIST[language] ?? ", ");
+  if (commas !== null) return commas;
+  missed?.push(core);
   return text;
 }
 /** The actions in the right-click menus (the first word or words of a hover line). */

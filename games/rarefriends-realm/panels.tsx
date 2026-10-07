@@ -477,7 +477,7 @@ function MagicTab({ game, refresh, setSelection, selection, openMenu }: PanelPro
       </div>
       <InfoCard>
         {shown ? <>
-          <b>{shown.name}</b> <small>Level {shown.level}{shown.maxHit ? ` · max hit ${shown.maxHit}` : ""}</small>
+          <b>{shown.name}</b> <small>{`Level ${shown.level}${shown.maxHit ? ` · max hit ${shown.maxHit}` : ""}`}</small>
           <p>{shown.description} <em>{TARGET_HINT[shown.target]}{shown.maxHit && staff ? " (or autocast with your staff)" : ""}.</em></p>
           <div className="realm-sigils">{Object.entries(shown.sigils).map(([sigil, n]) => { const have = count(player, sigil) + (sigil === "breeze_sigil" && player.equipment.weapon === "breeze_staff" ? 999 : 0);
             return <span key={sigil} data-short={have < n}><ItemIcon slot={{ id: sigil, n: 1 }} size={26} bare />{n}<small>/{have > 998 ? "∞" : have}</small></span>; })}
@@ -1287,7 +1287,7 @@ export function GuideModal({ game, skill, onSkill, onClose }: { game: Game; skil
           return <li key={index} data-open={level}>
             <b className="realm-guide-level" title={SKILL_NAMES[recipe.skill]}>{recipe.level}</b>
             <ItemIcon slot={{ id: Object.keys(recipe.outputs)[0], n: Object.values(recipe.outputs)[0] }} size={30} bare />
-            <span><b>{recipe.label}</b><small>{SKILL_NAMES[recipe.skill]} · {recipe.xp} XP · {recipe.where}{recipe.chance ? ` · ${Math.round(recipe.chance * 100)}% success` : ""}</small></span>
+            <span><b>{recipe.label}</b><small>{`${SKILL_NAMES[recipe.skill]} · ${recipe.xp} XP · ${recipe.where}${recipe.chance ? ` · ${Math.round(recipe.chance * 100)}% success` : ""}`}</small></span>
             <span className="realm-guide-inputs">{Object.entries(recipe.inputs).map(([id, n]) => <span key={id} data-have={has(id, n)} title={item(id).name}><ItemIcon slot={{ id, n: 1 }} size={24} bare />{n}</span>)}</span>
           </li>;
         })}

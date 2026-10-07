@@ -1,6 +1,6 @@
 /* RareFriends Realm: ink, paper and greys with faded rose, sage, butter and dusty-blue accents. */
 .realm-game { --ink: #161616; --paper: #efede7; --card: #f7f5f0f2; --muted: #6d6b67; --rose: #d8b6b4; --sage: #b4c3ab; --butter: #e2d7ad; --blue: #afbccb; --panel: #242322; --panel-2: #2f2d2b; --gold: #f2e28f;
-  position: relative; width: 100%; height: 100%; overflow: hidden; background: #0e0e10; color: var(--ink); font: 12px/1.35 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  position: relative; width: 100%; height: 100%; overflow: hidden; background: #0e0e10; color: var(--ink); font: 12px/1.35 ui-monospace, "SFMono-Regular", Menlo, Consolas, "Noto Sans Mono CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", "Apple SD Gothic Neo", "Malgun Gothic", "PingFang SC", "Microsoft YaHei", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK SC", "Noto Sans Thai", "Leelawadee UI", monospace;
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .realm-game * { box-sizing: border-box; }
 .realm-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
@@ -521,3 +521,10 @@
 .realm-nerd-check { align-items: flex-start; }
 .realm-nerd-check small { display: block; }
 .realm-nerds .realm-range b { color: #7a5612; }
+
+/* The language picker (Settings, and the title screen). */
+.realm-language { display: flex; align-items: center; gap: 6px; margin: 4px 0 8px; }
+.realm-language select { font: inherit; padding: 2px 4px; border: 2px solid #161616; background: #fff; color: #161616; max-width: 180px; }
+/* Languages written without spaces wrap anywhere; Thai and CJK read best a little larger. */
+.realm-game[data-lang="ja"], .realm-game[data-lang="ko"], .realm-game[data-lang^="zh"], .realm-game[data-lang="th"] { line-break: strict; }
+.realm-game[data-lang="ja"] .realm-tabs button, .realm-game[data-lang^="zh"] .realm-tabs button { letter-spacing: 0; }

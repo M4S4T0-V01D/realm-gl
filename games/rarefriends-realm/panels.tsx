@@ -17,6 +17,7 @@ import { MAX_QUEST_POINTS, NPCS, QUESTS, finalStage, questDone, questPoints, typ
 import { CARDS, CARD_KINDS, CARD_KIND_NAMES, cardFound, cardsFound, orderOpen, type CardDef } from "./codex.ts";
 import { decorArt } from "./scenery.ts";
 import { HIGH_QUALITY, LOW_QUALITY, type Quality } from "./render.ts";
+import { LANGUAGES } from "./i18n.ts";
 import { setLaw } from "./state.ts";
 import { FEEDBACK_KINDS, FEEDBACK_MAX, feedbackPost, type FeedbackKind } from "./feedback.ts";
 import { friendSays, remember } from "./friend.ts";
@@ -127,7 +128,9 @@ export const TABS: readonly { id: Tab; label: string; glyph: string; key: string
 ];
 export type Settings = { friendSpeech?: "full" | "reduced" | "rare" | "off"; /** Nameplates over players: name, tag and token id; the name alone; or nothing. */ nameplates?: "full" | "name" | "off"; music: boolean; sfx: boolean; musicVolume: number; sfxVolume: number; zoom: number; shiftDrop: boolean; autoMusic: boolean; dayNight?: boolean; weather?: boolean;
   /** Graphics quality: high (the default), low, or custom (every knob set by hand: `custom`). */
-  graphics?: "high" | "low" | "custom"; custom?: CustomGraphics };
+  graphics?: "high" | "low" | "custom"; custom?: CustomGraphics;
+  /** The language the interface is shown in: "auto" (the browser's), or one of i18n.ts's. */
+  language?: string };
 /**
  * Custom graphics, for nerds: what the renderer draws (render.ts `Quality`) and the screen around it: the renderer
  * (WebGL or the canvas), canvas pixels per screen pixel, whether that drops when the machine can't keep up, a frame-rate
@@ -645,6 +648,17 @@ export function NerdSettings({ settings, setSettings, onClose, webgl }: { settin
     </Modal>
   );
 }
+/** Which language the Realm is shown in (each language by its own name; Auto is the browser's). */
+export function LanguagePicker({ value, onChange }: { value: string | undefined; onChange: (language: string) => void }) {
+  return (
+    <label className="realm-language"><span>🌐 Language:</span>
+      <select value={value ?? "auto"} onChange={event => onChange(event.target.value)} aria-label="Language">
+        <option value="auto">Auto (this browser's)</option>
+        {LANGUAGES.map(lang => <option key={lang.id} value={lang.id} data-no-translate="">{lang.name}</option>)}
+      </select>
+    </label>
+  );
+}
 /** A slider in the Realm's style: a chunky groove filled in gold up to the value, a pixel knob, and the value shown. */
 function Slider({ label, min, max, value, unit = "", onChange }: { label: string; min: number; max: number; value: number; unit?: string; onChange: (value: number) => void }) {
   const fill = `${((value - min) / Math.max(1, max - min)) * 100}%`;
@@ -660,6 +674,7 @@ function SettingsTab({ game, settings, setSettings, trackName, trackId, playTrac
   const unlocked = game.player.music;
   return (
     <div className="realm-settings">
+      <LanguagePicker value={settings.language} onChange={language => set({ language })} />
       <h3>Music <small>({unlocked.filter(id => TRACKS.some(track => track.id === id)).length}/{TRACKS.length} unlocked)</small></h3>
       <label className="realm-check"><input type="checkbox" checked={settings.autoMusic} onChange={event => set({ autoMusic: event.target.checked })} /> Auto: play each area's track</label>
       <ul className="realm-tracks" aria-label="Music tracks">
@@ -693,7 +708,7 @@ function SettingsTab({ game, settings, setSettings, trackName, trackId, playTrac
       <label className="realm-check"><input type="checkbox" checked={settings.dayNight !== false} onChange={event => set({ dayNight: event.target.checked })} /> Day and night</label>
       <div className="realm-graphics" role="radiogroup" aria-label="Friend speech">
         <span>Friend speech:</span>{(["full", "reduced", "rare", "off"] as const).map(level => <button key={level} type="button" role="radio" aria-checked={(settings.friendSpeech ?? "full") === level} onClick={() => set({ friendSpeech: level })}
-          title={level === "full" ? "Your Friend remarks on the world, and players nearby hear it" : level === "reduced" ? "Fewer remarks, kept to yourself" : level === "rare" ? "Only the moments that matter" : "Your Friend keeps its thoughts to itself"}>{level[0].toUpperCase()}{level.slice(1)}</button>)}
+          title={level === "full" ? "Your Friend remarks on the world, and players nearby hear it" : level === "reduced" ? "Fewer remarks, kept to yourself" : level === "rare" ? "Only the moments that matter" : "Your Friend keeps its thoughts to itself"}>{level === "full" ? "Full" : level === "reduced" ? "Reduced" : level === "rare" ? "Rare" : "Off"}</button>)}
       </div>
       <div className="realm-graphics" role="radiogroup" aria-label="Nameplates">
         <span>Nameplates:</span>{(["full", "name", "off"] as const).map(level => <button key={level} type="button" role="radio" aria-checked={(settings.nameplates ?? "full") === level} onClick={() => set({ nameplates: level })}
@@ -1007,7 +1022,7 @@ export function HomeModal({ game, refresh, onRf, rfPrice, rfBusy }: { game: Game
         </ul>
         <h3>Looks (simulated RF: a Rare Casket each)</h3>
         {(Object.keys(HOME_LOOKS) as (keyof typeof HOME_LOOKS)[]).map(kind => <div key={kind} className="realm-graphics realm-card-row" role="radiogroup" aria-label={`Home ${kind}`}>
-          <span>{kind[0].toUpperCase()}{kind.slice(1)}:</span>
+          <span>{`${kind[0].toUpperCase()}${kind.slice(1)}:`}</span>
           {HOME_LOOKS[kind].map(option => <button key={option.id} type="button" role="radio" aria-checked={home[kind] === option.id} disabled={home[kind] === option.id || rfBusy || !onRf}
             title={onRf ? `${option.name} · 1 casket${rfPrice ? ` (${rfPrice(1)})` : ""}` : option.name} onClick={() => onRf?.(1, () => { setHomeLook(game, kind, option.id); refresh(); })}>{option.name}</button>)}
         </div>)}

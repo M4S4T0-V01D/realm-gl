@@ -4,6 +4,12 @@
  */
 export type Update = { id: number; date: string; title: string; items: readonly string[] };
 export const UPDATES: readonly Update[] = [
+  { id: 87, date: "2026-10-07", title: "The Realm in twelve languages", items: [
+    "The Realm speaks Japanese, Korean, Simplified and Traditional Chinese, Vietnamese, Indonesian, Thai, Turkish, Spanish, Brazilian Portuguese and Russian, as well as English.",
+    "It starts in your browser's language. Change it any time with 🌐 Language on the title screen or at the top of Settings.",
+    "Translated so far: the whole interface (every panel, menu, button and setting), the right-click actions, skills, quests, the Realm Daily, the bank and shops, the help and the game's messages. Item names, dialogue and quest text are still in English, and are next.",
+    "Players' own words are never translated: chat and names stay exactly as they were typed.",
+  ] },
   { id: 86, date: "2026-10-07", title: "Hold to walk, a bridge to Barkholm's far bank, and a bank at the Ring", items: [
     "Hold to walk: press the left mouse button on the ground and keep it held, and your Friend keeps walking towards the pointer. Steer with the mouse, and let go to stop. A quick click still walks to the spot, and holding after clicking a creature, a person or a tree never walks you away from it.",
     "Barkholm's new homes on the far bank of the Hush can be reached at last: a gravel lane runs west from the village over a plank bridge to a glade among the ironbarks, where they stand. Villages only ever grow where their people can walk now.",

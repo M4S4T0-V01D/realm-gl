@@ -78,7 +78,8 @@ function compile(language: string): Compiled | null {
       const m = /^\{(\w+)\}$/.exec(part);
       if (!m) return part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       names.push(m[1]);
-      return NUMBER.test(m[1]) ? "([−-]?\\d[\\d,.]*)" : "(.+?)";
+      // A number as the browser writes it: "25,000", "25.000", or "25 000" with a (narrow) no-break space.
+      return NUMBER.test(m[1]) ? "([−-]?\\d(?:[\\d,.]|[\\u00a0\\u202f](?=\\d))*)" : "(.+?)";
     }).join("");
     const literal = from.replace(/\{\w+\}/g, "");
     // A template only applies when every part of it is known if it's nothing but placeholders ("{n} {thing}"), or it's
@@ -114,6 +115,8 @@ export function untranslated(text: string, language: string): string[] {
 }
 const upperFirst = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+/** A sentence begun by a name that was filled in mid-line ("… viejos. daga de peltre ×6"): its first letter a capital. */
+const sentences = (text: string, language: string) => text.replace(/([.!?…]\s+)(\p{Ll})/gu, (_, end: string, letter: string) => end + letter.toLocaleUpperCase(language));
 function translated(text: string, language: string, c: Compiled, depth: number, missed: string[] | null): string {
   const lead = /^\s*/.exec(text)![0], tail = /\s*$/.exec(text)![0], core = text.trim();
   if (!core) return text;
@@ -124,8 +127,17 @@ function translated(text: string, language: string, c: Compiled, depth: number, 
     const upper = c.phrases.get(upperFirst(core));
     if (upper !== undefined) return lead + lowerFirst(upper) + tail;
   }
+  // A plural made by adding "s" ("6 pewter daggers"): the thing's own name, where that is known.
+  if (/[a-z]s$/.test(core)) {
+    const one = core.endsWith("ies") ? `${core.slice(0, -3)}y` : core.slice(0, -1);
+    const single = c.phrases.get(one) ?? (/^\p{Ll}/u.test(one) ? c.phrases.get(upperFirst(one)) : undefined);
+    if (single !== undefined) return lead + (c.phrases.has(one) ? single : lowerFirst(single)) + tail;
+  }
   // Numbers and symbols stay as they are.
   if (!/[A-Za-z]/.test(core)) return text;
+  // A mark in front of a line ("✓ An egg", "• 3 pewter bars"): the line translated, the mark kept.
+  const marked = /^([^\p{L}\p{N}\s"'“‘(\[{+#$@-]+)\s+(.+)$/su.exec(core);
+  if (marked) return lead + marked[1] + " " + translated(marked[2], language, c, depth, missed) + tail;
   if (depth > 4) { missed?.push(core); return text; }
   // A part of the text: whatever of it can't be translated stays in English (and is noted).
   const part = (piece: string) => translated(piece, language, c, depth + 1, missed);
@@ -148,11 +160,11 @@ function translated(text: string, language: string, c: Compiled, depth: number, 
       if (trial.length) continue;
       let out = to;
       names.forEach((name, i) => { out = out.split(`{${name}}`).join(parts[i]); });
-      return lead + out + tail;
+      return lead + sentences(out, language) + tail;
     }
     let out = to;
     names.forEach((name, i) => { out = out.split(`{${name}}`).join(NUMBER.test(name) ? m[i + 1] : part(m[i + 1])); });
-    return lead + out + tail;
+    return lead + sentences(out, language) + tail;
   }
   // Pieces of a line ("12 XP · 3 bars · Anvil"), each translated on its own.
   if (core.includes(" · ")) return lead + core.split(" · ").map(piece => part(piece)).join(" · ") + tail;

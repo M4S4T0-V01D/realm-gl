@@ -1,12 +1,20 @@
 // The Realm in other languages: every language has the whole interface, and the skill guides, the recipe book, every
-// item's name and the tips leave nothing in English. A new item, guide entry or tip needs its row in lang/table.ts.
+// item's name, the tips, what people say and the quests leave nothing in English. A new item, guide entry, tip, line of
+// dialogue or quest needs its row in lang/table.ts.
 import test from "node:test";
 import assert from "node:assert/strict";
+// The engine first: the content modules import each other in a circle that only resolves from here.
+import "../games/rarefriends-realm/engine.ts";
 import { LANGUAGES, translate, untranslated } from "../games/rarefriends-realm/i18n.ts";
 import { TABLE, TABLE_LANGUAGES } from "../games/rarefriends-realm/lang/table.ts";
 import { recipeBook, skillGuide } from "../games/rarefriends-realm/guide.ts";
-import { FAMILY_PERKS, ITEM_LIST, SKILLS, SKILL_NAMES } from "../games/rarefriends-realm/data.ts";
+import { FAMILY_PERKS, ITEM_LIST, MONSTERS, SKILLS, SKILL_NAMES } from "../games/rarefriends-realm/data.ts";
 import { FIRST_STEPS } from "../games/rarefriends-realm/firststeps.ts";
+import { NPCS, QUESTS, talk } from "../games/rarefriends-realm/content.ts";
+import { createGame } from "../games/rarefriends-realm/state.ts";
+import { RUMOURS } from "../games/rarefriends-realm/rumours.ts";
+import { FOE_GROUPS, MATCHES } from "../games/rarefriends-realm/arena.ts";
+import { TITLES } from "../games/rarefriends-realm/presence.ts";
 
 const languages = LANGUAGES.filter(lang => lang.dictionary).map(lang => lang.id);
 
@@ -51,4 +59,39 @@ test("translations fill in numbers and names, and keep lists and players' words 
   // A player's or a Friend family's name is left as it is; an unknown phrase stays English rather than half-translated.
   assert.equal(translate("Your Friend is named Pip. #12 is who it is; Pip is who it's becoming.", "es"), "Tu Friend se llama Pip. #12 es quien es; Pip es quien está llegando a ser.");
   assert.equal(translate("Hide the box", "ja"), "Hide the box");
+});
+
+test("what people say, the quests and the rumours are translated in every language", () => {
+  const texts = new Set();
+  // Everyone's name and what you see when you examine them, then everything they say, two answers deep, on a new game.
+  for (const npc of Object.values(NPCS)) [npc.name, npc.examine, ...(npc.options ?? [])].forEach(text => texts.add(text));
+  const walk = (dialogue, depth) => {
+    if (!dialogue) return;
+    dialogue.lines.forEach(line => texts.add(line.text));
+    for (const option of dialogue.options ?? []) { texts.add(option.label); if (depth) walk(option.then(), depth - 1); }
+  };
+  for (const id of Object.keys(NPCS)) walk(talk(createGame({ familyId: 1, friendId: 7 }), id), 2);
+  // Every quest's name, requirements, rewards and journal, before, during and after.
+  const game = createGame({ familyId: 1, friendId: 7 });
+  for (const quest of QUESTS) {
+    [quest.name, quest.start, ...(quest.requirements ?? []), ...(quest.rewards ?? [])].filter(Boolean).forEach(text => texts.add(text));
+    for (const stage of [0, 1, 2]) { game.player.quests[quest.id] = stage; quest.journal(game).forEach(line => texts.add(line)); }
+    delete game.player.quests[quest.id];
+  }
+  Object.values(RUMOURS).flat().forEach(rumour => texts.add(typeof rumour === "string" ? rumour : rumour.text));
+  MATCHES.forEach(match => { texts.add(match.name); texts.add(match.text); });
+  FOE_GROUPS.forEach(group => texts.add(group.name));
+  TITLES.forEach(title => { texts.add(title.name); texts.add(title.text); });
+  Object.values(MONSTERS).forEach(monster => texts.add(monster.name));
+  for (const lang of languages) {
+    const left = [...texts].flatMap(text => untranslated(text, lang));
+    assert.deepEqual([...new Set(left)].slice(0, 10), [], `${lang}: still in English`);
+  }
+});
+
+test("dialogue fills in numbers and each Order's name", () => {
+  assert.equal(translate("Laid to rest: 4/12", "es"), "Puestos a descansar: 4/12");
+  assert.equal(translate("Commander of the Order of the Ink. Swears in those who prove their faith.", "pt-BR"), "Comandante da Ordem da Tinta. Toma o juramento de quem prova sua fé.");
+  assert.equal(translate("A knight of the Order of the Diamond, in its colours.", "ru"), "Рыцарь Ордена Алмаза, в его цветах.");
+  assert.equal(translate("Mind the spiders in the hedges.", "ja"), "生け垣の蜘蛛に気をつけて。");
 });

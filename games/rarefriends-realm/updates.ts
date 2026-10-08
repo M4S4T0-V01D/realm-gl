@@ -4,6 +4,12 @@
  */
 export type Update = { id: number; date: string; title: string; items: readonly string[] };
 export const UPDATES: readonly Update[] = [
+  { id: 90, date: "2026-10-08", title: "Dialogue and quests in every language", items: [
+    "Everything the Realm's people say is translated in all twelve languages: every conversation, every answer you can give, and the townsfolk's rumours.",
+    "So is every quest: its name, what it needs, what it pays, and the journal entry at every step, with your counts filled in.",
+    "Examining someone tells you about them in your language too, and so do the Ring's matches, the job boards, work orders and Slayer tasks.",
+    "Game messages, signs and your Friend's chatter are still in English, and are next.",
+  ] },
   { id: 89, date: "2026-10-07", title: "Item names, the skill guides and tips in every language", items: [
     "Every item's name is translated in all twelve languages, wherever it shows: right-click menus, the bank, shops and the recipe book.",
     "The skill guides and the recipe book are translated in full: what each level unlocks, what it does, where it's made and what it takes.",

@@ -37,8 +37,8 @@ img { max-width: 100%; height: auto; display: block; }
 .btn.primary { background: var(--gold); color: var(--ink); font-size: 17px; padding: 15px 28px; }
 
 /* Bands with the Realm behind them: each section carries its own backdrop layers, painted with the game's own pixel
-   art (scripts/preview-backdrops.mjs), slid at their own pace as you scroll. The castle wall behind the trailer, the
-   night sky and its clouds over what's new, a lamplit street and the forest's edge behind the world, and a torchlit
+   art (scripts/preview-backdrops.mjs), slid at their own pace as you scroll. The moon and the night sky's clouds behind
+   the trailer and over what's new, a lamplit street and the forest's edge behind the world, and a torchlit
    dungeon below. A veil over each keeps the words readable. */
 .band { position: relative; isolation: isolate; overflow: hidden; background: transparent; }
 /* The bands' own backdrop boxes now carry only their torches: the scenery behind the page is one fixed stack (.parallax)
@@ -51,6 +51,9 @@ img { max-width: 100%; height: auto; display: block; }
 .parallax .veil { position: absolute; inset: 0; background: rgba(10,11,16,.42); }
 .bg.castle { background: url(media/bg/castle.png) top center / 720px auto repeat-x, url(media/bg/stone.png) center 60px / 144px 216px repeat, #0f1014; --veil: rgba(10,11,16,.5); }
 .bg.sky { background: url(media/bg/stars.png) 0 0 / 512px 512px repeat, url(media/bg/sky.png) 0 0 / 100% 100% no-repeat; --veil: rgba(10,11,16,.2); }
+/* The moon at the top of the page, high on the right with a soft glow round it; it drifts up slower than the sky,
+   coming out from behind the trailer as you scroll. */
+.parallax .moon { background: url(media/bg/moon.png) right 2vw top 76px / 128px 128px no-repeat, radial-gradient(circle 240px at calc(100% - 2vw - 64px) 140px, rgba(244,239,220,.2), rgba(244,239,220,.06) 55%, transparent) no-repeat; }
 .bg.clouds { background: url(media/bg/clouds.png) 0 0 / 1536px auto repeat; opacity: .8; animation: drift 180s linear infinite; }
 .bg.town { background: url(media/bg/town.png) bottom center / 1920px auto repeat-x; }
 .bg.forest { background: url(media/bg/forest.png) bottom center / 1920px auto repeat-x; }
@@ -67,7 +70,7 @@ img { max-width: 100%; height: auto; display: block; }
 @keyframes burn { to { background-position-x: -432px; } }
 @keyframes flicker { from { opacity: .7; transform: scale(.95); } to { opacity: 1; transform: scale(1.05); } }
 @media (prefers-reduced-motion: reduce) { .bg.clouds, .torch::before, .torch i { animation: none; } }
-@media (max-width: 640px) { .bg.castle { background-size: 480px auto, 96px 144px; background-position: top center, center 40px; } .bg.town, .bg.forest, .bg.floor { background-size: 1280px auto; } .bg.dungeon { background-size: 640px 384px; } .torch { transform: scale(.66); } }
+@media (max-width: 640px) { .parallax .moon { background-size: 96px 96px, auto; background-position: right 8vw top 56px, 0 0; background-image: url(media/bg/moon.png), radial-gradient(circle 160px at calc(100% - 8vw - 48px) 104px, rgba(244,239,220,.2), rgba(244,239,220,.06) 55%, transparent); } .bg.castle { background-size: 480px auto, 96px 144px; background-position: top center, center 40px; } .bg.town, .bg.forest, .bg.floor { background-size: 1280px auto; } .bg.dungeon { background-size: 640px 384px; } .torch { transform: scale(.66); } }
 .tag { display: inline-block; padding: 3px 10px; border: 1.5px solid currentColor; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
 
 /* Dark hero, like the title screen. */
@@ -226,13 +229,14 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   <div class="layer bg castle" data-theme="castle" data-speed=".22"></div>
   <div class="layer bg dungeon" data-theme="dungeon" data-speed=".18"></div>
   <div class="veil"></div>
+  <div class="layer bg moon" data-theme="sky" data-speed=".08"></div>
   <div class="layer bg clouds" data-theme="clouds" data-speed=".14"></div>
   <div class="layer bg ground town" data-theme="town" data-speed="0"></div>
   <div class="layer bg ground forest" data-theme="forest" data-speed="0"></div>
   <div class="layer bg ground floor" data-theme="floor" data-speed="0"></div>
 </div>
 <header class="top band">
-  <div class="bg castle" data-speed=".22" aria-hidden="true"><span class="torch" style="left: 7%; top: 56%"><i></i></span><span class="torch" style="left: 93%; top: 56%"><i></i></span><span class="torch small" style="left: 24%; top: 40%"><i></i></span><span class="torch small" style="left: 76%; top: 40%"><i></i></span></div>
+  <div class="bg sky" data-speed=".3" aria-hidden="true"></div><div class="bg clouds" data-speed=".14" aria-hidden="true"></div>
   <div class="wrap bar">
     <a class="logo" href="#"><i>⚔</i> RareFriends Realm</a>
     <nav aria-label="Sections"><a href="#trailer">Trailer</a><a href="#new">What's new</a><a href="./lore.html">Lore</a><a href="#explore">Explore</a><a href="#skills">Skills &amp; quests</a><a href="#music-section">Soundtrack</a><a href="#caskets">Caskets</a><a href="./guides.html">Skill guides</a><a href="#play">Play</a></nav>
@@ -587,8 +591,8 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
     if (reduced) { video.removeAttribute("autoplay"); video.pause(); }
   })();
   // Parallax: one scene behind the whole page. Each layer of the fixed stack slides at its own pace with the page's
-  // scroll, never restarting, and fades in and out by how much of the screen the bands that use it cover, so the castle
-  // wall gives way to the night sky, the street, the forest's edge and the dungeon as you scroll, in one movement.
+  // scroll, never restarting, and fades in and out by how much of the screen the bands that use it cover, so the moonlit
+  // sky gives way to the street, the forest's edge and the dungeon as you scroll, in one movement.
   (() => {
     const layers = [...document.querySelectorAll(".parallax .layer")].map(layer => ({ layer, theme: layer.dataset.theme, speed: Number(layer.dataset.speed) || 0 }));
     const bands = [...document.querySelectorAll(".band")].map(band => ({ band, themes: [...band.querySelectorAll(":scope > .bg")].flatMap(bg => [...bg.classList].filter(name => name !== "bg" && name !== "ground")) }));

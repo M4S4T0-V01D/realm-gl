@@ -67,6 +67,16 @@ function save(name, p) {
   const cloud = (cx, cy, w, color) => { for (let i = 0; i < 7; i++) { const a = cr() * Math.PI * 2, d = cr() * 0.5; clouds.disc(cx + Math.cos(a) * w * d, cy + Math.sin(a) * w * 0.3 * d, w * (0.3 + cr() * 0.25), w * (0.12 + cr() * 0.1), color, null); } clouds.disc(cx, cy + w * 0.08, w * 0.55, w * 0.14, shadeHex(color, -0.12), null); };
   for (const [x, y, w, c] of [[70, 40, 60, "#6b6782"], [330, 95, 90, "#5e5a74"], [460, 180, 70, "#6b6782"], [150, 230, 50, "#56526a"], [500, 320, 55, "#5e5a74"], [260, 360, 75, "#605c78"]]) { cloud(x, y, w, c); if (x + w > CW) cloud(x - CW, y, w, c); if (y + w * 0.3 > CH) cloud(x, y - CH, w, c); }
   save("clouds.png", clouds);
+  // The moon at the top of the page: a pale disc lit from the right, its terminator darker, a few craters.
+  const M = 40, moon = new Pixels(M, M), r = 18, c = M / 2 - 0.5;
+  for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) {
+    const dx = x - c, dy = y - c, d = Math.hypot(dx, dy);
+    if (d > r) continue;
+    const lit = (dx * 0.6 - dy * 0.4) / r;
+    moon.set(x, y, d > r - 1 ? "#cfc9b8" : lit > 0.25 ? "#f4efdc" : lit > -0.35 ? "#e6dfc6" : "#c9c1a8");
+  }
+  for (const [x, y, cr] of [[13, 14, 3], [24, 11, 2], [22, 24, 4], [11, 25, 2], [29, 19, 1.5]]) for (let j = -4; j <= 4; j++) for (let i = -4; i <= 4; i++) { const d = Math.hypot(i, j); if (d <= cr) moon.set(x + i, y + j, d > cr - 1 ? "#bdb59c" : "#d3cbb2"); }
+  save("moon.png", moon);
 }
 // ---------- Houses and the world: a lamplit street of timber houses, trees between, hills behind ----------
 {

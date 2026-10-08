@@ -4,6 +4,12 @@
  */
 export type Update = { id: number; date: string; title: string; items: readonly string[] };
 export const UPDATES: readonly Update[] = [
+  { id: 91, date: "2026-10-08", title: "The world and its messages in every language", items: [
+    "Everything you can right-click in the Realm has its name in all twelve languages, and Examine tells you about it in yours: furniture, graves, statues, banners, the Orders' halls, Raria's palace and the far west.",
+    "Every sign and signpost reads in your language, from the shop boards to the warnings at Westwatch and the Burned.",
+    "What the game tells you while you play is translated too: gathering, cooking, smithing, sigils, bags and satchels, potions, prayer, spells, the Wayfaring courses, travel, teleports, mounts and referrals.",
+    "Still in English, and next: your Friend's chatter, achievements, some panels, and the Rare Market's bundles.",
+  ] },
   { id: 90, date: "2026-10-08", title: "Dialogue and quests in every language", items: [
     "Everything the Realm's people say is translated in all twelve languages: every conversation, every answer you can give, and the townsfolk's rumours.",
     "So is every quest: its name, what it needs, what it pays, and the journal entry at every step, with your counts filled in.",

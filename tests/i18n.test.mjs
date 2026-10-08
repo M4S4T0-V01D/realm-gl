@@ -1,10 +1,10 @@
 // The Realm in other languages: every language has the whole interface, and the skill guides, the recipe book, every
-// item's name, the tips, what people say and the quests leave nothing in English. A new item, guide entry, tip, line of
-// dialogue or quest needs its row in lang/table.ts.
+// item's name, the tips, what people say, the quests, the world's things and signs, and what the game tells you leave
+// nothing in English. A new item, guide entry, tip, line of dialogue, quest, sign or message needs its row in lang/table.ts.
 import test from "node:test";
 import assert from "node:assert/strict";
 // The engine first: the content modules import each other in a circle that only resolves from here.
-import "../games/rarefriends-realm/engine.ts";
+import { menuFor } from "../games/rarefriends-realm/engine.ts";
 import { LANGUAGES, translate, untranslated } from "../games/rarefriends-realm/i18n.ts";
 import { TABLE, TABLE_LANGUAGES } from "../games/rarefriends-realm/lang/table.ts";
 import { recipeBook, skillGuide } from "../games/rarefriends-realm/guide.ts";
@@ -94,4 +94,31 @@ test("dialogue fills in numbers and each Order's name", () => {
   assert.equal(translate("Commander of the Order of the Ink. Swears in those who prove their faith.", "pt-BR"), "Comandante da Ordem da Tinta. Toma o juramento de quem prova sua fé.");
   assert.equal(translate("A knight of the Order of the Diamond, in its colours.", "ru"), "Рыцарь Ордена Алмаза, в его цветах.");
   assert.equal(translate("Mind the spiders in the hedges.", "ja"), "生け垣の蜘蛛に気をつけて。");
+});
+
+test("the world's things, what Examine says of them, and the signs are translated in every language", () => {
+  const game = createGame({ familyId: 1, friendId: 7 }), texts = new Set();
+  game.world.objects.forEach((object, id) => {
+    if (!object) return;
+    if (object.kind === "sign" && object.text) texts.add(object.text);
+    for (const option of menuFor(game, [{ kind: "object", id }], null)) {
+      texts.add(option.verb); texts.add(option.noun);
+      if (option.verb === "Examine") { const before = game.messages.length; option.run(game); game.messages.slice(before).forEach(message => texts.add(message.text)); }
+    }
+  });
+  for (const monster of game.monsters) for (const option of menuFor(game, [{ kind: "monster", id: monster.uid }], null)) { texts.add(option.verb); texts.add(option.noun); }
+  texts.delete("");
+  for (const lang of languages) {
+    const left = [...texts].flatMap(text => untranslated(text, lang));
+    assert.deepEqual([...new Set(left)].slice(0, 10), [], `${lang}: still in English`);
+  }
+});
+
+test("the game's messages put their numbers and things in place, a sentence at a time", () => {
+  assert.equal(translate("You need a Strength level of 40 to wield this.", "ja"), "これを装備するには筋力レベル40が必要だ。");
+  assert.equal(translate("You fill the satchel with 12 inkcoal (40/100).", "es"), "Llenas la bolsa con 12 de carbón de tinta (40/100).");
+  assert.equal(translate("You eat the cake. It heals some health.", "ja"), "ケーキを食べた。体力が少し回復した。");
+  assert.equal(translate("You teleport to the Rare Friends Ring.", "ko"), "레어 프렌즈 링(으)로 순간이동했다.");
+  assert.equal(translate("Hollis Armoury.", "es"), "Armería Hollis.");
+  assert.equal(translate("Hollis Armoury.", "ja"), "ホリス武具店");
 });

@@ -133,6 +133,11 @@ function translated(text: string, language: string, c: Compiled, depth: number, 
     const single = c.phrases.get(one) ?? (/^\p{Ll}/u.test(one) ? c.phrases.get(upperFirst(one)) : undefined);
     if (single !== undefined) return lead + (c.phrases.has(one) ? single : lowerFirst(single)) + tail;
   }
+  // A name made a sentence ("Hollis Armoury." on a shop's sign): the name, and the full stop where the language uses one.
+  if (/[^.]\.$/.test(core)) {
+    const named = c.phrases.get(core.slice(0, -1));
+    if (named !== undefined) return lead + named + (/[。.!?！？]$/.test(named) || language === "ja" || language === "th" || language.startsWith("zh") ? "" : ".") + tail;
+  }
   // Numbers and symbols stay as they are.
   if (!/[A-Za-z]/.test(core)) return text;
   // A mark in front of a line ("✓ An egg", "• 3 pewter bars"): the line translated, the mark kept.
@@ -165,6 +170,12 @@ function translated(text: string, language: string, c: Compiled, depth: number, 
     let out = to;
     names.forEach((name, i) => { out = out.split(`{${name}}`).join(NUMBER.test(name) ? m[i + 1] : part(m[i + 1])); });
     return lead + sentences(out, language) + tail;
+  }
+  // Sentences put together ("You eat the trout. It heals some health."): each one on its own, when every one is known.
+  const said = core.split(/(?<=[.!?…])\s+(?=[\p{Lu}\d"'“‘(+])/u);
+  if (said.length > 1) {
+    const trial: string[] = [], parts = said.map(piece => translated(piece, language, c, depth + 1, trial));
+    if (!trial.length) return lead + parts.join(language === "ja" || language.startsWith("zh") ? "" : " ") + tail;
   }
   // Pieces of a line ("12 XP · 3 bars · Anvil"), each translated on its own.
   if (core.includes(" · ")) return lead + core.split(" · ").map(piece => part(piece)).join(" · ") + tail;

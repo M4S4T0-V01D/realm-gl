@@ -44,6 +44,21 @@ const table: Readonly<Record<string, Row>> = {
     "В бете: плавно сливающаяся земля, гонтовые крыши при любом масштабе, каждое дерево и каждый Friend освещены там, где стоят, и настройки графики для гиков.",
     "У беті: земля, що плавно переходить одна в одну, гонтові дахи за будь-якого масштабу, кожне дерево й кожен Friend освітлені там, де стоять, і налаштування графіки для гіків.",
   ],
+  // Realm-GL's own preview says a little more about the same video.
+  "In beta: ground that blends from grass to sand and path to snow, shingled roofs and bricks at every zoom, every tree and Friend lit where it stands, and graphics settings for nerds.": [
+    "ベータ版: 草から砂へ、道から雪へとなめらかにつながる地面、どの拡大率でも描かれる板葺き屋根とレンガ、立つ場所ごとに照らされる木々とフレンド、そしてマニア向けのグラフィック設定。",
+    "베타: 풀에서 모래로, 길에서 눈으로 자연스럽게 이어지는 지면, 모든 배율에서 보이는 지붕널과 벽돌, 서 있는 자리마다 빛을 받는 나무와 프렌드, 그리고 마니아를 위한 그래픽 설정.",
+    "测试版：从草地过渡到沙地、从小路过渡到雪地的地面，任何缩放下都看得见的瓦片和砖墙，每棵树和每个伙伴都在各自的位置被照亮，还有给技术宅的画质设置。",
+    "測試版：從草地過渡到沙地、從小路過渡到雪地的地面，任何縮放下都看得見的瓦片和磚牆，每棵樹和每個夥伴都在各自的位置被照亮，還有給技術宅的畫質設定。",
+    "Bản beta: mặt đất hòa từ cỏ sang cát và từ lối đi sang tuyết, ngói và gạch hiện ở mọi mức thu phóng, mỗi cái cây và Friend được chiếu sáng nơi nó đứng, và cài đặt đồ họa cho dân mê kỹ thuật.",
+    "Beta: tanah yang berbaur dari rumput ke pasir dan dari jalan setapak ke salju, sirap atap dan bata di setiap tingkat zoom, setiap pohon dan Friend diterangi di tempatnya berdiri, dan pengaturan grafis untuk para kutu teknologi.",
+    "เบต้า: พื้นที่ผสมกลมกลืนจากหญ้าสู่ทรายและจากทางเดินสู่หิมะ แผ่นมุงหลังคาและอิฐที่เห็นได้ทุกระดับการซูม ต้นไม้และ Friend ทุกตัวได้รับแสงตรงที่ยืนอยู่ และการตั้งค่ากราฟิกสำหรับสายเนิร์ด",
+    "Beta: çimenden kuma, patikadan kara karışan zemin, her yakınlaştırmada çatı kiremitleri ve tuğlalar, durduğu yerde aydınlanan her ağaç ve Friend, ve meraklılar için grafik ayarları.",
+    "En beta: suelo que se funde de hierba a arena y de camino a nieve, tejas y ladrillos con cualquier zoom, cada árbol y cada Friend iluminados donde están, y ajustes gráficos para frikis.",
+    "Em beta: chão que se mescla da grama para a areia e da trilha para a neve, telhas e tijolos em qualquer zoom, cada árvore e Friend iluminados onde estão, e configurações gráficas para nerds.",
+    "Бета: земля, плавно переходящая от травы к песку и от тропы к снегу, черепица и кирпич при любом масштабе, каждое дерево и Friend освещены там, где стоят, и настройки графики для гиков.",
+    "Бета: земля, що плавно переходить від трави до піску й від стежки до снігу, черепиця й цегла за будь-якого масштабу, кожне дерево й Friend освітлені там, де стоять, і налаштування графіки для гіків.",
+  ],
   "Realm WebGL beta video: ground blending at Fernwick, Friendhollow's roofs zooming out, Raria's palace and keep, Frostpeak in the snow, a lamplit evening in the square, and the graphics settings for nerds": [
     "Realm WebGL ベータ版の動画: ファーンウィックでなめらかにつながる地面、ズームアウトしていくフレンドホロウの屋根、ラリアの宮殿と天守、雪のフロストピーク、ランプに照らされた広場の夕暮れ、そしてマニア向けのグラフィック設定",
     "Realm WebGL 베타 영상: 펀윅에서 자연스럽게 섞이는 지면, 줌아웃되는 프렌드할로우의 지붕들, 라리아의 궁전과 성채, 눈 덮인 프로스트피크, 등불이 켜진 광장의 저녁, 그리고 마니아를 위한 그래픽 설정",

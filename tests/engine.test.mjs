@@ -10,7 +10,7 @@ import { buyWayfarerReward, runDrain, slipChance } from "../games/rarefriends-re
 import { HERBS, POTIONS, MIXTURES, ESSENCES, brewRecipes, grindRecipes, stillRecipes } from "../games/rarefriends-realm/apothecary.ts";
 import { TITLES, chooseTitle, cleanName, cleanTag, joinFellowship, leaveFellowship, nameFriend, playerName, profile, unlockedTitles, reputation } from "../games/rarefriends-realm/presence.ts";
 import { presenceOf } from "../games/rarefriends-realm/social.ts";
-import { friendSays, friendTick, remember, tendencies } from "../games/rarefriends-realm/friend.ts";
+import { friendSays, friendTick, remember, spoken, tendencies } from "../games/rarefriends-realm/friend.ts";
 import { RUMOURS, rumourAt, rumourCount } from "../games/rarefriends-realm/rumours.ts";
 import { talk } from "../games/rarefriends-realm/content.ts";
 import { ARENA, inArena, inRing, inRingBuilding } from "../games/rarefriends-realm/world.ts";
@@ -1036,15 +1036,20 @@ test("Presence: a name for your Friend (the token stays), fellowships, titles, a
 test("Your Friend talks back: in its family's manner, to what's around it, remembering firsts; rumours and recognition in the villages", () => {
   const g = newGame({ familyId: 6 }), p = g.player; // a Colossus
   g.friendSpeech = "full";
-  assert.equal(friendSays(g, "mountain"), "Big.", "a Colossus is blunt");
+  const said = friendSays(g, "mountain");
+  assert(["Mountain. Climb.", "Big. Good."].includes(said), "a Colossus is blunt");
   assert.equal(friendSays(g, "mountain"), null, "and doesn't repeat itself straight away");
-  assert.equal(g.messages.at(-1).text, "Friend #7730: Big.", "the line goes to chat as your Friend");
-  assert(g.events.some(event => event.type === "friend" && event.text === "Big." && event.share), "and over its head, shared with players nearby on Full");
+  assert.equal(g.messages.at(-1).text, `Friend #7730: ${said}`, "the line goes to chat as your Friend");
+  assert(g.events.some(event => event.type === "friend" && event.text === said && event.share), "and over its head, shared with players nearby on Full");
   g.friendSpeech = "off"; assert.equal(friendSays(g, "quest"), null, "off is off");
-  g.friendSpeech = "rare"; p.friendLast = -1e9; assert.equal(friendSays(g, "grave"), null, "rare keeps the small talk"); assert(["Down.", "Big. Was big."].includes(friendSays(g, "boss")), "but not the moments that matter");
+  g.friendSpeech = "rare"; p.friendLast = -1e9; assert.equal(friendSays(g, "grave"), null, "rare keeps the small talk"); assert(["Down.", "Was big."].includes(friendSays(g, "boss")), "but not the moments that matter");
   // Families differ.
   const sk = newGame({ familyId: 0 }); sk.friendSpeech = "full"; assert.equal(friendSays(sk, "grave", null), sk.messages.at(-1).text.replace("Friend #7730: ", ""));
-  assert(["Finally. Someone who planned ahead.", "Nice plot. Quiet neighbours."].includes(sk.messages.at(-1).text.replace("Friend #7730: ", "")), "a Skeleton at a grave");
+  assert(["Someone's resting. Lucky them.", "A grave. Wipe your feet."].includes(sk.messages.at(-1).text.replace("Friend #7730: ", "")), "a Skeleton at a grave");
+  // In the player's language, the names in it too; a creature's name starting a sentence takes its capital.
+  assert.equal(spoken("{name}. Hm.", { name: "Fernwick" }, "ja"), "ファーンウィック。ふむ。");
+  assert.equal(spoken("Another {name}.", { name: "Fernwick" }, "es"), "Otro Fernwick.");
+  assert.equal(spoken("{name}. Observe the gait.", { name: "grumblin" }, "en"), "Grumblin. Observe the gait.");
   // Looking around: entering a region for the first time, and a creature in view.
   g.friendSpeech = "full"; run(g, 6); p.friendLast = -1e9; p.friendEventAt = {};
   teleport(g, ...M(34, 70)); run(g, 12);

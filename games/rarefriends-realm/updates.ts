@@ -4,6 +4,12 @@
  */
 export type Update = { id: number; date: string; title: string; items: readonly string[] };
 export const UPDATES: readonly Update[] = [
+  { id: 93, date: "2026-10-08", title: "Your Friend finds its voice, and the Realm speaks every language", items: [
+    "Your Friend's chatter has been rewritten from start to finish: each of the nine Friend families talks in its own voice about where you are, what you're doing, the skills you're training and what you've just beaten.",
+    "Your Friend speaks your language now, and when it pipes up in public chat, everyone reads it the way it was said.",
+    "Achievements, the last English panels, prayer and spell descriptions and the soundtrack's names are translated into all twelve languages, and so is this update log, every entry back to the first.",
+    "The Realm's preview site speaks the same languages, and its lore page and world map now take in Raria, the Orders and their gods.",
+  ] },
   { id: 92, date: "2026-10-08", title: "Examine everything in every language", items: [
     "Examining anything you carry tells you about it in your language: all 1,071 items, from pewter daggers to the Federation's capes, Raria's vestments and the west's quest papers.",
     "So does examining anything you fight, from chickens and Grumblins to the Ring's Seven, the Regiment's soldiers and the oldest dragon in the Realm.",

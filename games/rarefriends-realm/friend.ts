@@ -12,6 +12,9 @@ import { CHATTER, PLAIN, SHARED_CHATTER, SKILL_LINES, VOICES, type FriendEvent }
 import { addXp, emit, message, type Game, type Player } from "./state.ts";
 import { T, isUnderground, objectAtTile, regionAt, terrainAt } from "./world.ts";
 import { playerName, presenceLevel } from "./presence.ts";
+import { currentLanguage, translate } from "./i18n.ts";
+import { TABLE_LANGUAGES } from "./lang/table.ts";
+import { FRIEND } from "./lang/friend.ts";
 
 export type FriendSpeech = "full" | "reduced" | "rare" | "off";
 export type { FriendEvent } from "./friendlines.ts";
@@ -50,6 +53,18 @@ function tendencyLine(game: Game): string | null {
   return { explorer: "What's beyond that hill?", warrior: "Something's nearby. I can feel it.", scholar: "There's a sigil in that pattern, if you look.", collector: "We don't have one of those yet.", crafter: "That would make a fine handle.", faithful: "We should light the altar before we leave." }[best[0]] ?? null;
 }
 
+/**
+ * A line as it's said, in the player's language (lang/friend.ts has every line in every language): the names filled in,
+ * translated where the game knows them (a creature, a region, a skill), a player's own Friend's name left as it is.
+ */
+export function spoken(line: string, fill: Record<string, string>, language = currentLanguage()) {
+  const column = TABLE_LANGUAGES.indexOf(language as typeof TABLE_LANGUAGES[number]);
+  let out = (column >= 0 ? FRIEND[line]?.[column] : undefined) ?? line;
+  for (const [key, value] of Object.entries(fill)) out = out.split(`{${key}}`).join(key === "friend" || key === "n" || !value ? value : translate(value, language));
+  out = out.replace(/ {2,}/g, " ").trim();
+  // A creature's name is written small ("a grumblin"), so where one starts a sentence it takes a capital.
+  return out.replace(/(^|[.!?…]\s+)(\p{Ll})/gu, (_, before: string, letter: string) => before + letter.toLocaleUpperCase(language === "en" ? undefined : language));
+}
 /** Say something, if it's time. Returns the line said, or null. */
 export function friendSays(game: Game, event: FriendEvent, name: string | null = null, n = 0): string | null {
   const p = game.player, mode = game.friendSpeech;
@@ -61,7 +76,7 @@ export function friendSays(game: Game, event: FriendEvent, name: string | null =
   let line = memoryLine(game, event, name) ?? (event === "idle" ? tendencyLine(game) : null);
   if (!line && event === "idle" && game.rng() < 0.6) { const bank = [...(CHATTER[p.familyId] ?? []), ...SHARED_CHATTER]; line = bank[Math.floor(game.rng() * bank.length)]; }
   if (!line) { const pool = voice[event] ?? PLAIN[event] ?? []; if (!pool.length) return null; line = pool[Math.floor(game.rng() * pool.length)]; }
-  line = line.replace("{name}", name ?? "").replace("{n}", String(n)).replace("{friend}", p.name ?? `#${p.friendId}`).replace("{region}", regionAt(game.world, p.x, p.y).name).replace("  ", " ").trim();
+  line = spoken(line, { name: name ?? "", n: String(n), friend: p.name ?? `#${p.friendId}`, region: regionAt(game.world, p.x, p.y).name });
   p.friendLast = game.tick; p.friendEventAt[event] = game.tick;
   message(game, `${playerName(p)}: ${line}`, "public");
   emit(game, { type: "friend", text: line, share: mode === "full", tick: game.tick });
@@ -75,7 +90,7 @@ export function friendWorks(game: Game, skill: Skill) {
   const lines = SKILL_LINES[skill]; if (!lines) return null;
   const pool = [...lines.shared, ...(lines.family[p.familyId] ?? []), ...(lines.family[p.familyId] ?? [])];
   if (!pool.length || game.rng() > 0.5) return null;
-  const line = pool[Math.floor(game.rng() * pool.length)].replace("{skill}", SKILL_NAMES[skill]);
+  const line = spoken(pool[Math.floor(game.rng() * pool.length)], { skill: SKILL_NAMES[skill] });
   p.friendLast = game.tick; p.friendEventAt[`skill_${skill}`] = game.tick;
   message(game, `${playerName(p)}: ${line}`, "public"); emit(game, { type: "friend", text: line, share: mode === "full", tick: game.tick });
   return line;

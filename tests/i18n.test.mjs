@@ -1,6 +1,6 @@
 // The Realm in other languages: every language has the whole interface, and the skill guides, the recipe book, every
 // item's name, the tips, what people say, the quests, the world's things and signs, and what the game tells you leave
-// nothing in English. A new item, guide entry, tip, line of dialogue, quest, sign or message needs its row in lang/table.ts.
+// nothing in English. A new item, guide entry, tip, line of dialogue, quest, sign, message or update needs its row in lang/table.ts.
 import test from "node:test";
 import assert from "node:assert/strict";
 // The engine first: the content modules import each other in a circle that only resolves from here.
@@ -15,6 +15,7 @@ import { createGame } from "../games/rarefriends-realm/state.ts";
 import { RUMOURS } from "../games/rarefriends-realm/rumours.ts";
 import { FOE_GROUPS, MATCHES } from "../games/rarefriends-realm/arena.ts";
 import { TITLES } from "../games/rarefriends-realm/presence.ts";
+import { UPDATES } from "../games/rarefriends-realm/updates.ts";
 
 const languages = LANGUAGES.filter(lang => lang.dictionary).map(lang => lang.id);
 
@@ -129,4 +130,30 @@ test("the game's messages put their numbers and things in place, a sentence at a
   assert.equal(translate("You teleport to the Rare Friends Ring.", "ko"), "레어 프렌즈 링(으)로 순간이동했다.");
   assert.equal(translate("Hollis Armoury.", "es"), "Armería Hollis.");
   assert.equal(translate("Hollis Armoury.", "ja"), "ホリス武具店");
+});
+
+test("everything a Friend says is in every language, with the English's placeholders", async () => {
+  const { VOICES, PLAIN, SKILL_LINES, CHATTER, SHARED_CHATTER } = await import("../games/rarefriends-realm/friendlines.ts");
+  const { FRIEND } = await import("../games/rarefriends-realm/lang/friend.ts");
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(new URL("../games/rarefriends-realm/friend.ts", import.meta.url), "utf8");
+  const memories = [...source.matchAll(/return "([^"]+)"/g), ...source.matchAll(/(?:explorer|warrior|scholar|collector|crafter|faithful): "([^"]+)"/g)].map(m => m[1]);
+  const lines = [...VOICES, PLAIN].flatMap(voice => Object.values(voice).flat())
+    .concat(Object.values(SKILL_LINES).flatMap(lines => [...lines.shared, ...Object.values(lines.family).flat()]), CHATTER.flat(), SHARED_CHATTER, memories);
+  const holes = text => [...text.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort().join();
+  for (const line of new Set(lines)) {
+    if (!/\p{L}/u.test(line)) continue;
+    const row = FRIEND[line];
+    assert.ok(row, `"${line}" has its row in lang/friend*.ts`);
+    assert.equal(row.length, TABLE_LANGUAGES.length, line);
+    row.forEach((text, i) => { assert.ok(text.trim(), `${TABLE_LANGUAGES[i]}: "${line}"`); assert.equal(holes(text), holes(line), `${TABLE_LANGUAGES[i]} keeps the placeholders of "${line}"`); });
+  }
+});
+
+test("every update in the log, its title and each item, is in every language", () => {
+  for (const update of UPDATES) for (const text of [update.title, ...update.items]) {
+    const row = TABLE[text];
+    assert.ok(row, `update ${update.id} has a row for "${text.slice(0, 60)}"`);
+    for (const [i, lang] of TABLE_LANGUAGES.entries()) assert.ok(row[i]?.trim(), `update ${update.id} in ${lang}: "${text.slice(0, 60)}"`);
+  }
 });

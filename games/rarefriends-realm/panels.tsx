@@ -432,12 +432,12 @@ function PrayerTab({ game, refresh, openMenu }: PanelProps) {
         {prayers.map(prayer => (
           <button key={prayer.id} type="button" aria-pressed={player.prayers.includes(prayer.id)} disabled={level < prayer.level} aria-label={`${prayer.name} (level ${prayer.level}): ${prayer.description}`}
             onMouseEnter={() => setHover(prayer.id)} onFocus={() => setHover(prayer.id)} onClick={() => { togglePrayer(game, prayer.id); refresh(); }}
-            {...rightClick(openMenu, () => [{ verb: player.prayers.includes(prayer.id) ? (rarian ? "Release" : "Deactivate") : (rarian ? "Keep" : "Activate"), noun: prayer.name, run: () => { togglePrayer(game, prayer.id); refresh(); } }, { verb: "Examine", noun: prayer.name, run: () => { message(game, `${prayer.name}: ${prayer.description} (level ${prayer.level}).`); refresh(); } }])}>
+            {...rightClick(openMenu, () => [{ verb: player.prayers.includes(prayer.id) ? (rarian ? "Release" : "Deactivate") : (rarian ? "Keep" : "Activate"), noun: prayer.name, run: () => { togglePrayer(game, prayer.id); refresh(); } }, { verb: "Examine", noun: prayer.name, run: () => { message(game, `${prayer.name} (level ${prayer.level}): ${prayer.description}.`); refresh(); } }])}>
             <PixelIcon art={prayerArt(prayer.id)} size={36} />
           </button>
         ))}
       </div>
-      <InfoCard>{(() => { const prayer = prayers.find(entry => entry.id === hover); return prayer ? <><b>{prayer.name}</b> <small>Level {prayer.level}</small><p>{prayer.description}. Drains {Math.round(prayer.drain * 100) / 100} points a tick.</p></>
+      <InfoCard>{(() => { const prayer = prayers.find(entry => entry.id === hover); return prayer ? <><b>{prayer.name}</b> <small>{`Level ${prayer.level}`}</small><p>{`${prayer.description}. Drains ${Math.round(prayer.drain * 100) / 100} points a tick.`}</p></>
         : rarian ? <p>The Law is kept at the Wise Friend's altar in Raria, and at any altar besides: the Law uses what works. The Order of Dusk's gear slows the drain of every commandment.</p> : <p>Recharge at any altar. Bury bones to train Prayer.</p>; })()}</InfoCard>
     </div>
   );
@@ -501,7 +501,7 @@ function EmotesTab({ game, refresh, openMenu }: PanelProps) {
           </button>;
         })}
       </div>
-      <InfoCard>{shown ? <><b>{shown.name}</b>{"needs" in shown && <p>Needs {shown.needs}.</p>}</> : <p>Other players see your emotes too. Walking ends one.</p>}</InfoCard>
+      <InfoCard>{shown ? <><b>{shown.name}</b>{"needs" in shown && <p>{`Needs ${shown.needs}.`}</p>}</> : <p>Other players see your emotes too. Walking ends one.</p>}</InfoCard>
     </div>
   );
 }
@@ -1445,7 +1445,7 @@ export function DailyModal({ game, tab, onTab, onClose, refresh, openMenu, onRf,
             {ACHIEVEMENTS.filter(entry => entry.group === group).map(entry => { const day = player.achievements[entry.id];
               return <li key={entry.id} className={day !== undefined ? "done" : ""} title={entry.text}
                 {...rightClick(openMenu, () => [{ verb: "Examine", noun: entry.name, run: () => { message(game, `${entry.name}: ${entry.text}${day !== undefined ? ` Earned ${new Date(day * DAY_MS).toISOString().slice(0, 10)}.` : ""}`); refresh(); } }])}>
-                <b className="realm-badge">{day !== undefined ? entry.icon : "?"}</b><div><b>{entry.name}</b><small>{entry.text}</small>{day !== undefined && <em>Earned {new Date(day * DAY_MS).toISOString().slice(0, 10)}</em>}</div>
+                <b className="realm-badge">{day !== undefined ? entry.icon : "?"}</b><div><b>{entry.name}</b><small>{entry.text}</small>{day !== undefined && <em>{`Earned ${new Date(day * DAY_MS).toISOString().slice(0, 10)}`}</em>}</div>
               </li>; })}
           </ul></section>)}
         </div>

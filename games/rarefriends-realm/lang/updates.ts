@@ -1,4 +1,4 @@
-// The update log (updates.ts) in every language, gathered from its parts (updates1.ts to updates20.ts, oldest first).
+// The update log (updates.ts) in every language, gathered from its parts (updates1.ts to updates21.ts, oldest first, and updatesgl.ts for Realm-GL's own).
 // The DOM translator matches each title and item whole, so every one has a row of its own.
 import type { Row } from "./table.ts";
 import { UPDATES1 } from "./updates1.ts";
@@ -22,9 +22,10 @@ import { UPDATES18 } from "./updates18.ts";
 import { UPDATES19 } from "./updates19.ts";
 import { UPDATES20 } from "./updates20.ts";
 import { UPDATES21 } from "./updates21.ts";
+import { UPDATES_GL } from "./updatesgl.ts";
 
 export const UPDATE_LOG: Readonly<Record<string, Row>> = {
   ...UPDATES1, ...UPDATES2, ...UPDATES3, ...UPDATES4, ...UPDATES5, ...UPDATES6, ...UPDATES7, ...UPDATES8, ...UPDATES9, ...UPDATES10,
   ...UPDATES11, ...UPDATES12, ...UPDATES13, ...UPDATES14, ...UPDATES15, ...UPDATES16, ...UPDATES17, ...UPDATES18, ...UPDATES19, ...UPDATES20,
-  ...UPDATES21,
+  ...UPDATES21, ...UPDATES_GL,
 };

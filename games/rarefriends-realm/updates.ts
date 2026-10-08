@@ -9,6 +9,7 @@ export const UPDATES: readonly Update[] = [
     "Your Friend speaks your language now, and when it pipes up in public chat, everyone reads it the way it was said.",
     "Achievements, the last English panels, prayer and spell descriptions and the soundtrack's names are translated into all twelve languages, and so is this update log, every entry back to the first.",
     "The Realm's preview site speaks the same languages, and its lore page and world map now take in Raria, the Orders and their gods.",
+    "The Defence and Faith skill guides list the Orders' arms a tier at a time: one Orders of Faith entry for Oathbound, Knight and Paladin (Diamond, Ink, Sol, Hood, Ember) and one for each of the Dusk's, instead of every piece of every Order.",
   ] },
   { id: 92, date: "2026-10-08", title: "Examine everything in every language", items: [
     "Examining anything you carry tells you about it in your language: all 1,071 items, from pewter daggers to the Federation's capes, Raria's vestments and the west's quest papers.",

@@ -10,24 +10,45 @@ import { ESSENCES, HERBS, MIXTURES, POTIONS } from "./apothecary.ts";
 import { NPCS } from "./content.ts";
 import { AMULETS, STALLS, amuletRecipe, carvingRecipes, arrowRecipe, boltRecipe, craftingRecipes, crossbowRecipe, spinningRecipes, stringingRecipe, fletchingRecipes, headlessRecipe, smeltingRecipes, smithingRecipes } from "./engine.ts";
 import type { Recipe } from "./state.ts";
+import { ORDERS, ORDER_TIERS, orderOf, type OrderId } from "./knights.ts";
 
 export type GuideEntry = { level: number; name: string; detail: string; icon?: string; spell?: string };
 const byLevel = (entries: GuideEntry[]) => entries.sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
-/** Items whose equip requirement names this skill (weapons, armour, tools). */
+/** Items whose equip requirement names this skill (weapons, armour, tools). In Defence and Faith the Orders' arms are left to orderArms. */
 function gear(skill: Skill): GuideEntry[] {
   return ITEM_LIST.flatMap(entry => {
     const needed = entry.equip?.requires?.[skill];
-    if (!needed || entry.mastery) return [];
+    if (!needed || entry.mastery || ((skill === "defence" || skill === "prayer") && orderOf(entry.id) && entry.id !== "dusk_cape")) return [];
     const bonus = entry.equip!.bonuses, best = Object.entries(bonus).filter(([, v]) => (v ?? 0) > 0).map(([k, v]) => `+${v} ${k}`).join(", ");
     return [{ level: needed, name: entry.name, detail: `${entry.equip!.slot === "weapon" ? "Wield" : "Wear"}${best ? ` (${best})` : ""}`, icon: entry.id }];
   });
+}
+/**
+ * The Orders' arms, one entry a tier instead of one a piece: the five Orders of Faith together, since their pieces are the
+ * same but for the look and the blessing, and the Order of Dusk on its own, since its pieces have names of their own.
+ */
+function orderArms(skill: "defence" | "prayer"): GuideEntry[] {
+  const faith: OrderId[] = ["diamond", "ink", "sol", "hood", "ember"];
+  const out = [faith, ["dusk"] as OrderId[]].flatMap(orders => ORDER_TIERS.map(tier => {
+    const pieces = ITEM_LIST.filter(entry => entry.id.startsWith(`${orders[0]}_${tier.id}_`) && (skill === "prayer" || entry.equip?.requires?.defence));
+    const bonus = pieces.map(entry => entry.equip!.bonuses[skill] ?? 0), names = pieces.map(entry => entry.name.split(" ").slice(2).join(" "));
+    const list = `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`, dusk = orders[0] === "dusk";
+    return {
+      level: skill === "prayer" ? tier.faith : tier.defence, icon: `${orders[0]}_${tier.id}_body`,
+      name: dusk ? `Order of Dusk: ${ORDERS.dusk.tiers![tier.id]}` : `Orders of Faith: ${tier.name} (${orders.map(id => ORDERS[id].short).join(", ")})`,
+      detail: `${skill === "prayer" ? "Wear or wield" : "Wear"}: ${list} (+${Math.min(...bonus)} to +${Math.max(...bonus)} ${skill} a piece)${skill === "prayer" ? " · faith arms: Faith XP with every hit, and they hurt the undead more" : ""} · ${dusk ? "sold to those sworn to the Order of Dusk" : "sold by each Order's quartermaster to those sworn to it; every Order's set has its own look and blessing"}`,
+    };
+  }));
+  if (skill === "prayer") out.push({ level: 20, icon: "diamond_cape", name: `Orders of Faith capes (${faith.map(id => ORDERS[id].short).join(", ")})`, detail: "Wear (+4 defence, +3 prayer) · each Order's commander gives its cape for the oath" });
+  return out;
 }
 /** Every level-based unlock in a skill, in level order, ending with its mastery cape. */
 export function skillGuide(skill: Skill): GuideEntry[] {
   const out: GuideEntry[] = [];
   const add = (level: number, name: string, detail: string, icon?: string) => out.push({ level, name, detail, icon });
   switch (skill) {
-    case "attack": case "defence": out.push(...gear(skill)); break;
+    case "attack": out.push(...gear(skill)); break;
+    case "defence": out.push(...gear(skill), ...orderArms(skill)); break;
     case "ranged":
       out.push(...gear(skill));
       for (const ammo of ITEM_LIST.filter(entry => entry.ammo)) add(ammo.ammo!.level, ammo.name, `${ammo.ammo!.bolt ? "Fired by any crossbow" : "Fired by any bow"} · +${ammo.ammo!.strength} strength`, ammo.id);
@@ -45,10 +66,10 @@ export function skillGuide(skill: Skill): GuideEntry[] {
     case "prayer":
       for (const prayer of PRAYERS) add(prayer.level, prayer.name, prayer.description);
       for (const spell of SPELLS) if (spell.skill === "prayer") out.push({ level: spell.level, name: `Spell: ${spell.name}`, detail: `${spell.description} (Faith tab of the spellbook)`, spell: spell.id });
-      out.push(...gear("prayer"));
+      out.push(...gear("prayer"), ...orderArms("prayer"));
       for (const bones of ITEM_LIST.filter(entry => entry.bones)) add(1, `Bury ${bones.name.toLowerCase()}`, `${bones.bones} Faith XP (twice that offered on an altar, three times in the Dawnhold chapel)`, bones.id);
       // The Order of the Dawn's faith weapons: a little Faith XP with each hit, and they hurt the undead more.
-      for (const weapon of ITEM_LIST.filter(entry => entry.equip?.holy)) add(weapon.equip!.requires?.prayer ?? 1, weapon.name, "Faith weapon: Faith XP with every hit, and it hurts the undead more", weapon.id);
+      for (const weapon of ITEM_LIST.filter(entry => entry.equip?.holy && !orderOf(entry.id))) add(weapon.equip!.requires?.prayer ?? 1, weapon.name, "Faith weapon: Faith XP with every hit, and it hurts the undead more", weapon.id);
       break;
     case "sigilcraft":
       for (const altar of SIGILCRAFT) add(altar.level, `${item(altar.sigil).name}s`, `${altar.xp} XP a stone at the ${item(altar.sigil).name.replace(" sigil", "")} altar; ${sigilsPerStone(altar.level + 11, altar.level)} per stone from level ${altar.level + 11}`, altar.sigil);

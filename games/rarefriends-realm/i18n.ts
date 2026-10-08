@@ -171,11 +171,21 @@ function translated(text: string, language: string, c: Compiled, depth: number, 
     names.forEach((name, i) => { out = out.split(`{${name}}`).join(NUMBER.test(name) ? m[i + 1] : part(m[i + 1])); });
     return lead + sentences(out, language) + tail;
   }
-  // Sentences put together ("You eat the trout. It heals some health."): each one on its own, when every one is known.
+  // Sentences put together ("You eat the cake. It heals some health."), when every one is known: in the fewest pieces,
+  // each a sentence or a run of them that has its own row ("A leaf. The first herb." + "It needs cleaning.").
   const said = core.split(/(?<=[.!?…])\s+(?=[\p{Lu}\d"'“‘(+])/u);
   if (said.length > 1) {
-    const trial: string[] = [], parts = said.map(piece => translated(piece, language, c, depth + 1, trial));
-    if (!trial.length) return lead + parts.join(language === "ja" || language.startsWith("zh") ? "" : " ") + tail;
+    const best: (string[] | null)[] = [[]];
+    for (let j = 1; j <= said.length; j++) {
+      best[j] = null;
+      for (let i = 0; i < j; i++) {
+        if (!best[i] || (i === 0 && j === said.length) || (best[j] && best[i]!.length + 1 >= best[j]!.length)) continue;
+        const trial: string[] = [], piece = translated(said.slice(i, j).join(" "), language, c, depth + 1, trial);
+        if (!trial.length) best[j] = [...best[i]!, piece];
+      }
+    }
+    const parts = best[said.length];
+    if (parts) return lead + parts.join(language === "ja" || language.startsWith("zh") ? "" : " ") + tail;
   }
   // Pieces of a line ("12 XP · 3 bars · Anvil"), each translated on its own.
   if (core.includes(" · ")) return lead + core.split(" · ").map(piece => part(piece)).join(" · ") + tail;

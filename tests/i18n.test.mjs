@@ -114,6 +114,14 @@ test("the world's things, what Examine says of them, and the signs are translate
   }
 });
 
+test("what Examine says of everything you carry and everything you fight is translated in every language", () => {
+  const texts = new Set([...ITEM_LIST.map(item => item.examine), ...Object.values(MONSTERS).map(monster => monster.examine)].filter(Boolean));
+  for (const lang of languages) {
+    const left = [...texts].flatMap(text => untranslated(text, lang));
+    assert.deepEqual([...new Set(left)].slice(0, 10), [], `${lang}: still in English`);
+  }
+});
+
 test("the game's messages put their numbers and things in place, a sentence at a time", () => {
   assert.equal(translate("You need a Strength level of 40 to wield this.", "ja"), "これを装備するには筋力レベル40が必要だ。");
   assert.equal(translate("You fill the satchel with 12 inkcoal (40/100).", "es"), "Llenas la bolsa con 12 de carbón de tinta (40/100).");

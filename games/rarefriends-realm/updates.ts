@@ -4,6 +4,11 @@
  */
 export type Update = { id: number; date: string; title: string; items: readonly string[] };
 export const UPDATES: readonly Update[] = [
+  { id: 92, date: "2026-10-08", title: "Examine everything in every language", items: [
+    "Examining anything you carry tells you about it in your language: all 1,071 items, from pewter daggers to the Federation's capes, Raria's vestments and the west's quest papers.",
+    "So does examining anything you fight, from chickens and Grumblins to the Ring's Seven, the Regiment's soldiers and the oldest dragon in the Realm.",
+    "Still in English, and next: your Friend's chatter, achievements, some panels, and the Rare Market's bundles.",
+  ] },
   { id: 91, date: "2026-10-08", title: "The world and its messages in every language", items: [
     "Everything you can right-click in the Realm has its name in all twelve languages, and Examine tells you about it in yours: furniture, graves, statues, banners, the Orders' halls, Raria's palace and the far west.",
     "Every sign and signpost reads in your language, from the shop boards to the warnings at Westwatch and the Burned.",

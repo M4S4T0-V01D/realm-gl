@@ -40,7 +40,10 @@ function showSkill(skill: Skill) {
 }
 function showBook(filter = "", skill = "all") {
   const book = recipeBook(), skills = [...new Set(book.map(recipe => recipe.skill))];
-  const rows = book.filter(recipe => (skill === "all" || recipe.skill === skill) && (!filter || recipe.label.toLowerCase().includes(filter) || Object.keys(recipe.inputs).some(id => item(id).name.toLowerCase().includes(filter))))
+  // A search finds a recipe by its English name or its name in the language shown (lang.ts).
+  const t = (window as unknown as { realmT?: (text: string) => string }).realmT ?? (text => text);
+  const matches = (name: string) => name.toLowerCase().includes(filter) || t(name).toLowerCase().includes(filter);
+  const rows = book.filter(recipe => (skill === "all" || recipe.skill === skill) && (!filter || matches(recipe.label) || Object.keys(recipe.inputs).some(id => matches(item(id).name))))
     .map(recipe => `<tr><td class="level">${recipe.level}</td><td class="icon">${img(itemArt(item(Object.keys(recipe.outputs)[0]).icon))}</td>
       <td><b>${escape(recipe.label)}</b><br><small>${SKILL_NAMES[recipe.skill]} · ${recipe.xp} XP · ${escape(recipe.where)}</small></td>
       <td><span class="inputs">${Object.entries(recipe.inputs).map(([id, n]) => `<span title="${escape(item(id).name)}">${img(itemArt(item(id).icon), item(id).name)}${n}</span>`).join("")}</span></td></tr>`).join("");

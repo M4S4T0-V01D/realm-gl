@@ -1,5 +1,7 @@
 // Preview page check: builds /preview/ and confirms the floating button plays the main theme and a jukebox track
-// at an audible level after a click (desktop) or tap (phone), and stops again.
+// at an audible level after a click (desktop) or tap (phone), and stops again. Then, in every language, that the picker
+// switches the page and nothing on the main page, the lore or the skill guides is left in English (every video, every
+// picture, every skill), except the names that stay as they are.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile } from "node:fs/promises";
@@ -7,10 +9,12 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { chromium } from "playwright";
+import { guideStrings } from "../scripts/preview-lang.mjs";
+import { TABLE_LANGUAGES } from "../games/rarefriends-realm/lang/table.ts";
 
 const dir = path.join(await mkdtemp(path.join(tmpdir(), "realm-preview-")), "preview");
 execFileSync("node", ["scripts/build-preview.mjs", "--outdir", dir], { stdio: "inherit" });
-const types = { ".html": "text/html", ".js": "text/javascript", ".png": "image/png", ".mp4": "video/mp4", ".jpg": "image/jpeg" };
+const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".mp4": "video/mp4", ".jpg": "image/jpeg" };
 const server = createServer(async (request, response) => {
   const file = path.join(dir, request.url.split("?")[0].replace(/^\/preview\/?/, "/").replace(/\/$/, "/index.html"));
   const body = await readFile(file).catch(() => null);
@@ -103,5 +107,31 @@ try {
     assert.deepEqual(errors, []);
     await context.close();
   }
+  // Every language: the picker switches the page, and nothing is left in English but the names that stay as they are
+  // (the brand, and the game's own names where the game keeps them in English).
+  const keep = new Set(["RareFriends Realm", "<i>⚔</i> RareFriends Realm", "⚔ RareFriends Realm", "RareFriends<span>Realm</span>", "$RAREFRIENDS", "RF", "@RareFriendsNFT #RareFriends #RareFriendsRealm", ...guideStrings()]);
+  const base = `http://127.0.0.1:${server.address().port}/preview/`;
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" }), page = await context.newPage(), errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto(base);
+  await page.locator(".lang-pick select").selectOption("ja");
+  await page.waitForFunction(() => window.realmLanguage() === "ja");
+  assert.equal(await page.locator('.bar nav a[href="#new"]').innerText(), "新着情報", "the picker switches the page");
+  assert.equal(await page.evaluate(() => document.documentElement.lang), "ja");
+  await page.locator(".lang-pick select").selectOption("en");
+  await page.waitForFunction(() => window.realmLanguage() === "en");
+  assert.equal(await page.locator('.bar nav a[href="#new"]').innerText(), "What's new", "and back to English");
+  for (const lang of TABLE_LANGUAGES) {
+    const left = new Set(), look = async () => { for (const text of await page.evaluate(() => window.realmUntranslated())) if (!keep.has(text)) left.add(text); };
+    await page.goto(`${base}?lang=${lang}`); await page.waitForFunction(lang => window.realmLanguage() === lang, lang); await look();
+    for (let i = 0; i < 9; i++) { await page.locator("#trailer-next").click(); await look(); }
+    for (const gallery of await page.locator(".gallery").all()) for (const thumb of await gallery.locator(".strip button").all()) { await thumb.click(); await look(); }
+    await page.goto(`${base}lore.html?lang=${lang}`); await page.waitForFunction(lang => window.realmLanguage() === lang, lang); await look();
+    await page.goto(`${base}guides.html?lang=${lang}`); await page.waitForFunction(lang => window.realmLanguage() === lang, lang);
+    for (const button of await page.locator("#picker button").all()) { await button.click(); await look(); }
+    assert.deepEqual([...left], [], `${lang}: nothing left in English`);
+  }
+  assert.deepEqual(errors, []);
+  await context.close();
 } finally { await browser.close(); server.close(); }
-console.log("PASS preview page: the video carousel at the top and the picture galleries; main theme and jukebox; skill guides and recipe book");
+console.log("PASS preview page: the video carousel at the top and the picture galleries; main theme and jukebox; skill guides and recipe book; every language, all of it");

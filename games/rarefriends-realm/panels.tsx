@@ -156,6 +156,8 @@ export type PanelProps = {
   /** Your party: who's in it, and how to leave or invite. */
   party?: { members: number[]; onLeave: () => void; onInvite: (id: number) => void };
   onExportSave?: (action: "copy" | "download") => void; onRestoreSave?: (code: string) => Promise<string | null>; backupStatus?: string;
+  /** Cloud saves: status and buttons (cloudui.tsx), shown in Settings. */
+  cloud?: ReactNode;
   net?: NetState; onSocial?: (op: "add" | "remove" | "ignore" | "unignore", id: number) => void; onWhisper?: (id: number) => void; onOnline?: (on: boolean) => void;
 };
 export function SidePanel(props: PanelProps & { open: boolean; setOpen: (open: boolean) => void }) {
@@ -682,7 +684,7 @@ function Slider({ label, min, max, value, unit = "", onChange }: { label: string
     </label>
   );
 }
-function SettingsTab({ game, settings, setSettings, trackName, trackId, playTrack, openHelp, openNerds, openFeedback, saved, refresh, openMenu, net, onOnline, onExportSave, onRestoreSave, backupStatus, onLogout, fullscreen, onFullscreen, pip, onPip }: PanelProps) {
+function SettingsTab({ game, settings, setSettings, trackName, trackId, playTrack, openHelp, openNerds, openFeedback, saved, refresh, openMenu, net, onOnline, onExportSave, onRestoreSave, backupStatus, onLogout, fullscreen, onFullscreen, pip, onPip, cloud }: PanelProps) {
   const set = (patch: Partial<Settings>) => setSettings({ ...settings, ...patch });
   const [code, setCode] = useState(""), [confirming, setConfirming] = useState(false), [restoreNote, setRestoreNote] = useState("");
   const unlocked = game.player.music;
@@ -732,8 +734,9 @@ function SettingsTab({ game, settings, setSettings, trackName, trackId, playTrac
       <label className="realm-check"><input type="checkbox" checked={game.player.run} onChange={() => { toggleRun(game); refresh(); }} /> Run</label>
       <p className="realm-note">{saved}</p>
       {onLogout && <button type="button" className="realm-primary realm-wide" onClick={onLogout}>⏻ Save and log out</button>}
+      {cloud && <><h3>Cloud saves</h3>{cloud}</>}
       <h3>Back up your adventure</h3>
-      <p className="realm-muted">Browser saves can be cleared. A save code holds your whole adventure: keep it anywhere, and paste it back on any browser.</p>
+      <p className="realm-muted">With cloud saves on you don't need a save code. It's an extra copy of your whole adventure: keep it anywhere and paste it back on any browser. A code from before cloud saves can be restored here, and it goes up to the cloud too.</p>
       <div className="realm-buttons"><button type="button" className="realm-dark" onClick={() => onExportSave?.("copy")}>Copy save code</button><button type="button" className="realm-dark" onClick={() => onExportSave?.("download")}>Download save file</button></div>
       {backupStatus && <p className="realm-note" role="status">{backupStatus}</p>}
       <label className="realm-restore">Restore from a code <input value={code} onChange={event => { setCode(event.target.value); setConfirming(false); setRestoreNote(""); }} placeholder="RFR1-…" aria-label="Save code to restore" /></label>

@@ -9,10 +9,14 @@
  *     in its own localStorage, keyed by wallet address and Friend.
  *  3. Playing together (host/net.ts): other players' Friends, chat and a friends list, peer to peer. Only Friend IDs
  *     travel, and everything received is validated before the game sees it.
- *  4. Sharing the adventurer card. On the player's click, it uses the share sheet, clipboard, a download or an
+ *  4. Cloud saves (host/cloud.ts): once the wallet signs in (a message, never a transaction), the browser save is
+ *     mirrored to the Realm's save service, so the adventure follows the wallet to any device. Nothing else changes:
+ *     the browser save still comes first, and play carries on if the cloud can't be reached.
+ *  5. Sharing the adventurer card. On the player's click, it uses the share sheet, clipboard, a download or an
  *     X post link. The sandbox has none of these powers.
  * All of them reach the sandboxed game only over postMessage, when it asks. The watcher session only uses
- * `eth_accounts`: no signing and no extra prompts. GameHost still owns connection and selection.
+ * `eth_accounts`; the one signature (cloud sign-in) is asked for only when the player chooses it in the game.
+ * GameHost still owns connection and selection.
  */
 import { useEffect } from "react";
 import { createRoot } from "react-dom/client";
@@ -24,8 +28,9 @@ import { GENERATION_SPRITE_MANIFEST } from "@rarefriends/friendsdk/sprites";
 import { createClient, http } from "viem";
 import { getBlockNumber, getChainId, getLogs, readContract } from "viem/actions";
 import {
-  FEEDBACK_REQUEST, FEEDBACK_RESULT, FULLSCREEN_REQUEST, FULLSCREEN_STATE, JOIN_INVITE, TEXT_COPY, TEXT_COPY_RESULT, HOST_HELLO, HOST_STATE, SAVE_ELSEWHERE, SAVE_EXPORT, SAVE_EXPORT_RESULT, SAVE_WRITE, SHARE_REQUEST, SHARE_RESULT, type FeedbackOutcome, type FeedbackTarget, type ShareAction, type ShareOutcome,
+  CLOUD_ACTION, CLOUD_STATE, type CloudAction, FEEDBACK_REQUEST, FEEDBACK_RESULT, FULLSCREEN_REQUEST, FULLSCREEN_STATE, JOIN_INVITE, TEXT_COPY, TEXT_COPY_RESULT, HOST_HELLO, HOST_STATE, SAVE_ELSEWHERE, SAVE_EXPORT, SAVE_EXPORT_RESULT, SAVE_WRITE, SHARE_REQUEST, SHARE_RESULT, type FeedbackOutcome, type FeedbackTarget, type ShareAction, type ShareOutcome,
 } from "../games/rarefriends-realm/roster.ts";
+import { CloudSync } from "./cloud.ts";
 import { NET_ACT, NET_CHAT, NET_ONLINE, NET_PRESENCE, NET_SOCIAL } from "../games/rarefriends-realm/net.ts";
 import { NetHub } from "./net.ts";
 import gameJson from "../games/rarefriends-realm/game.json";
@@ -89,7 +94,7 @@ function RealmHost() {
     let account: string | null = null, controller: AbortController | null = null, roster: string[] | null = null, friend: string | null = null;
     // One tab saves at a time: the newest tab for a wallet and Friend takes over, and older tabs stop writing.
     const tab = Math.random().toString(36).slice(2), saves = typeof BroadcastChannel === "function" ? new BroadcastChannel("rarefriends-realm:saves") : null;
-    let superseded = false;
+    let superseded = false, cloud: CloudSync | null = null;
     const claim = () => { superseded = false; if (account && friend) saves?.postMessage({ key: saveKey(account, friend), tab }); };
     if (saves) saves.onmessage = event => {
       if (!account || !friend || event.data?.tab === tab || event.data?.key !== saveKey(account, friend)) return;
@@ -98,7 +103,29 @@ function RealmHost() {
     const frames = () => [...document.querySelectorAll("iframe")].flatMap(frame => frame.contentWindow ? [frame.contentWindow] : []);
     // Nothing is sent until this wallet's roster is known, so the game can match it to its verified manager.
     const owns = (id: unknown) => !!roster?.some(entry => entry.split(":")[0] === String(id));
-    const send = (target: Window) => { if (account && roster) target.postMessage({ type: HOST_STATE, ids: roster, save: owns(friend) ? readSave(account, friend) : null }, "*"); };
+    // The game's starting save waits for the cloud to be checked (a few seconds at most); after that, it's the browser's.
+    const send = (target: Window) => {
+      if (!account || !roster || (cloud && !cloud.started())) return;
+      target.postMessage({ type: HOST_STATE, ids: roster, save: owns(friend) ? readSave(account, friend) : null }, "*");
+      if (cloud) target.postMessage({ type: CLOUD_STATE, state: cloud.current() }, "*");
+    };
+    /** One cloud sync per wallet and owned Friend, made when both are known. */
+    const ensureCloud = () => {
+      if (!account || !roster || !friend || !owns(friend)) { cloud?.dispose(); cloud = null; return; }
+      if (cloud && cloud.account === account && cloud.friend === friend) return;
+      cloud?.dispose();
+      const me = account, them = friend, ids = roster;
+      cloud = new CloudSync(me, them, {
+        readSave: () => readSave(me, them) as Record<string, unknown> | null,
+        writeSave: save => writeSave(me, them, save),
+        deliver: (save, replace) => frames().forEach(target => target.postMessage({ type: HOST_STATE, ids, save, ...(replace ? { replace: true } : {}) }, "*")),
+        state: state => frames().forEach(target => target.postMessage({ type: CLOUD_STATE, state }, "*")),
+        provider: () => session.getProvider(),
+        origin: () => window.location.origin,
+        reload: () => window.location.reload(),
+      });
+      void cloud.open();
+    };
     const broadcast = () => frames().forEach(send);
     // Playing together: tests (navigator.webdriver) meet over a same-origin channel, everyone else peer to peer.
     const hub = new NetHub(message => frames().forEach(target => target.postMessage(message, "*")), navigator.webdriver);
@@ -107,14 +134,14 @@ function RealmHost() {
       const snapshot = session.getSnapshot();
       const next = snapshot.status === "connected" ? snapshot.account : null;
       if (next === account) return;
-      account = next; controller?.abort(); roster = null; superseded = false; sync();
+      account = next; controller?.abort(); roster = null; superseded = false; cloud?.dispose(); cloud = null; sync();
       if (!next) return;
       const current = controller = new AbortController();
       // Discovery can hit public-RPC rate limits, so keep retrying for about a minute before giving up (the game then
       // plays unsaved). Saves start as soon as it succeeds, even mid-play.
       const discover = (attempt: number): void => {
         void readOwnedFriends(client, next, { signal: current.signal })
-          .then(result => { if (!current.signal.aborted) { roster = result.friends.map(owned => `${owned.id}:${owned.generation}`); claim(); broadcast(); sync(); } })
+          .then(result => { if (!current.signal.aborted) { roster = result.friends.map(owned => `${owned.id}:${owned.generation}`); claim(); ensureCloud(); broadcast(); sync(); } })
           .catch(() => { if (!current.signal.aborted && attempt < 8) setTimeout(() => discover(attempt + 1), Math.min(10_000, 1500 * (attempt + 1))); });
       };
       discover(0);
@@ -123,7 +150,7 @@ function RealmHost() {
     const receive = (event: MessageEvent) => {
       if (!event.source || !frames().includes(event.source as Window)) return;
       if (event.data?.type === HOST_HELLO) {
-        friend = /^[0-9]{1,15}$/.test(String(event.data.friend)) ? String(event.data.friend) : null; claim(); send(event.source as Window); sync();
+        friend = /^[0-9]{1,15}$/.test(String(event.data.friend)) ? String(event.data.friend) : null; claim(); ensureCloud(); send(event.source as Window); sync();
         // A fellowship invitation in the page's link (?join=…) goes to the game once it's listening.
         const join = new URLSearchParams(window.location.search).get("join");
         if (join && /^[A-Za-z0-9_-]{8,600}$/.test(join)) (event.source as Window).postMessage({ type: JOIN_INVITE, token: join }, "*");
@@ -144,7 +171,25 @@ function RealmHost() {
       else if (event.data?.type === SAVE_WRITE && account && owns(event.data.friend) && String(event.data.friend) === friend) {
         // A restored save code takes this Friend's saves back from any other tab.
         if (event.data.claim === true) claim();
-        if (!superseded) writeSave(account, friend, event.data.save);
+        if (!superseded) {
+          writeSave(account, friend, event.data.save);
+          const importHash = typeof event.data.importHash === "string" && /^[0-9a-f]{64}$/.test(event.data.importHash) ? event.data.importHash : null;
+          if (event.data.save && typeof event.data.save === "object") cloud?.queue(event.data.save, event.data.important === true, event.data.claim === true ? importHash : null);
+        }
+      }
+      else if (event.data?.type === CLOUD_ACTION && cloud) {
+        // The player's choices about cloud saves, from the game's buttons.
+        const action = event.data.action as CloudAction;
+        if (action === "verify") void cloud.signIn();
+        else if (action === "sign-out") cloud.signOut();
+        else if (action === "import") void cloud.importLocal(event.data.replacing === true);
+        else if (action === "skip-import") cloud.skipImport();
+        else if (action === "keep-cloud") cloud.keepCloud();
+        else if (action === "keep-local") void cloud.keepLocal();
+        else if (action === "retry") cloud.retry();
+        else if (action === "reload") window.location.reload();
+        // Logging out: up now, as an exit (never held back by the every-few-seconds limit).
+        else if (action === "flush" && !superseded) void cloud.flush(true);
       }
       else if (event.data?.type === TEXT_COPY && typeof event.data.text === "string" && event.data.text.length <= 1000) {
         const source = event.source as Window;
@@ -182,9 +227,9 @@ function RealmHost() {
     const unsubscribe = session.subscribe(check); check();
     // Pick up a connection made through GameHost even if the wallet emits no accountsChanged event.
     const poll = setInterval(() => { if (session.getSnapshot().status !== "connected") void session.refresh(); }, 2500);
-    const bye = () => hub.dispose();
+    const bye = () => { if (!superseded) void cloud?.flush(true); hub.dispose(); };
     window.addEventListener("pagehide", bye);
-    return () => { clearInterval(poll); unsubscribe(); window.removeEventListener("message", receive); document.removeEventListener("fullscreenchange", fullscreen); window.removeEventListener("pagehide", bye); hub.dispose(); saves?.close(); controller?.abort(); session.dispose(); };
+    return () => { clearInterval(poll); unsubscribe(); window.removeEventListener("message", receive); document.removeEventListener("fullscreenchange", fullscreen); window.removeEventListener("pagehide", bye); hub.dispose(); saves?.close(); controller?.abort(); cloud?.dispose(); session.dispose(); };
   }, []);
   // The same wide layout as games/rarefriends-realm/host.css, set on the wrapper as HOST_INTEGRATION.md describes.
   return (

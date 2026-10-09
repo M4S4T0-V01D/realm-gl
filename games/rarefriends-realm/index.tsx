@@ -30,7 +30,8 @@ import { Trades } from "./trade.ts";
 import { FELLOW_RANGE, PARTY_RANGE, Party, nearby } from "./party.ts";
 import { makeSaveCode, restoreSaveCode } from "./savecode.ts";
 import { strikeAt, weatherAt, type Weather } from "./weather.ts";
-import { FEEDBACK_REQUEST, FEEDBACK_RESULT, FULLSCREEN_REQUEST, FULLSCREEN_STATE, JOIN_INVITE, TEXT_COPY, TEXT_COPY_RESULT, HOST_HELLO, HOST_STATE, SAVE_ELSEWHERE, SAVE_EXPORT, SAVE_EXPORT_RESULT, SAVE_WRITE, SHARE_REQUEST, SHARE_RESULT, parseRoster, type ShareAction, type ShareOutcome } from "./roster.ts";
+import { CLOUD_ACTION, CLOUD_STATE, FEEDBACK_REQUEST, FEEDBACK_RESULT, FULLSCREEN_REQUEST, FULLSCREEN_STATE, JOIN_INVITE, TEXT_COPY, TEXT_COPY_RESULT, HOST_HELLO, HOST_STATE, SAVE_ELSEWHERE, SAVE_EXPORT, SAVE_EXPORT_RESULT, SAVE_WRITE, SHARE_REQUEST, SHARE_RESULT, parseCloudState, parseRoster, type CloudAction, type CloudState, type ShareAction, type ShareOutcome } from "./roster.ts";
+import { CloudControls, CloudDialogs, type SaveSummary } from "./cloudui.tsx";
 import { RealmAudio, trackFor, trackById, type SfxName, type TrackId } from "./audio.ts";
 import { recruitText, renderCard, renderFellowshipCard, shareText } from "./card.ts";
 import { feedbackIssue, feedbackPost, type FeedbackKind } from "./feedback.ts";
@@ -159,7 +160,8 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
   const lastMinimapPoint = useRef<React.MouseEvent<HTMLCanvasElement> | null>(null);
   const [snapshot, setSnapshot] = useState<GameSnapshot | null>(null), [busy, setBusy] = useState(false), [casketError, setCasketError] = useState(""), [reveal, setReveal] = useState<CasketResult[] | null>(null);
   const [size, setSize] = useState({ width: 960, height: 640, scale: 1 }), [sideOpen, setSideOpen] = useState(true), [fullscreen, setFullscreen] = useState(false), [pip, setPip] = useState(false), [shareStatus, setShareStatus] = useState(""), [feedbackStatus, setFeedbackStatus] = useState(""), [cardUrl, setCardUrl] = useState<string | null>(null);
-  const pendingSave = useRef<unknown>(null), cardBlob = useRef<Blob | null>(null), resizeRef = useRef<() => void>(() => {}), saveNow = useRef<(claim?: boolean) => void>(() => {});
+  const pendingSave = useRef<unknown>(null), cardBlob = useRef<Blob | null>(null), resizeRef = useRef<() => void>(() => {}), saveNow = useRef<(claim?: boolean, importHash?: string) => void>(() => {});
+  const [cloud, setCloud] = useState<CloudState | null>(null), cloudWas = useRef<CloudState["status"] | null>(null), milestone = useRef("");
   /** Logged out: back on the title screen with the adventure saved. */
   const [loggedOut, setLoggedOut] = useState(false);
   const live = useRef({ paused, phase, modal, menu, selection, settings }); live.current = { paused, phase, modal, menu, selection, settings };
@@ -226,9 +228,20 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
     audio.current?.dispose(); audio.current = new RealmAudio(); audio.current.play("theme");
     setPhase("loading"); setStatus("Waking your Friend and unfolding the Realm…"); setHosted("waiting"); setHasSave(null); setRoster([]); setRosterState("waiting");
     linked.current = false; elsewhere.current = false; lastSave.current = ""; pendingSave.current = null; followerSprites.current = new Map(); game.current = null; friend.current = null;
-    const applyHost = (data: { ids?: unknown; save?: unknown }) => {
+    const applyHost = (data: { ids?: unknown; save?: unknown; replace?: unknown }) => {
       const state = game.current, parsed = parseRoster(data.ids, friendId);
       if (!state || parsed === null) return;
+      // A different save chosen on the title screen (the cloud's, answering a conflict): start from it instead.
+      if (data.replace === true && linked.current) {
+        if (live.current.phase === "playing") { window.parent.postMessage({ type: CLOUD_ACTION, action: "reload" }, "*"); return; }
+        const fresh = createGame({ familyId: state.player.familyId, friendId: Number(friendId) });
+        if (data.save && restore(fresh, data.save)) {
+          game.current = fresh; lastSave.current = JSON.stringify(serialize(fresh));
+          setHasSave({ total: totalLevel(fresh.player), combat: combatLevel(fresh.player), qp: questPoints(fresh), where: regionAt(fresh.world, fresh.player.x, fresh.player.y).name });
+          const at = realPoint(fresh.world, fresh.player.x, fresh.player.y); camera.current.x = at.x; camera.current.y = at.y;
+        }
+        refresh(); return;
+      }
       setRoster(parsed.others); setRosterState(parsed.others.length ? "ready" : "none");
       if (state.player.follower !== null) { const follower = parsed.others.find(entry => entry.id === state.player.follower); setFollower(state, follower ?? null); if (follower) loadFriendSprite(follower.id); }
       if (!linked.current) {
@@ -346,6 +359,20 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
         if (!whispered) players.current.say(from, text, performance.now());
         refresh(); return;
       }
+      if (event.data?.type === CLOUD_STATE) {
+        const next = parseCloudState(event.data.state), state = game.current;
+        if (!next) return;
+        // A word in the chat when cloud saving starts, stops or comes back, while playing.
+        const was = cloudWas.current; cloudWas.current = next.status;
+        if (state && live.current.phase === "playing" && was !== next.status) {
+          if (next.status === "saved" && (was === "signing" || was === "loading" || was === "import" || was === "local-only")) message(state, next.imported ? "Your existing adventure is now in the cloud: it saves online automatically from here on." : "Cloud saves are on: your adventure now saves online automatically.", "info");
+          else if (next.status === "saved" && was === "offline") message(state, "Back online: your adventure is saved to the cloud again.", "info");
+          else if (next.status === "offline" && was !== "loading") message(state, "Couldn't reach the cloud: your adventure is still saved in this browser and uploads when it can.", "info");
+          else if (next.status === "not-owner") message(state, "This wallet doesn't own this Friend now, so cloud saving has stopped. Your progress is still saved in this browser.", "info");
+          refresh();
+        }
+        setCloud(next); return;
+      }
       if (event.data?.type !== HOST_STATE) return;
       if (game.current) applyHost(event.data); else pendingSave.current = event.data;
     };
@@ -402,13 +429,16 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
   // ---------- Saving (through the trusted host, per wallet) ----------
   useEffect(() => {
     // A claim (after restoring a save code) saves at once and takes this Friend's saves back from any other tab.
-    const save = (claim?: unknown) => {
+    const save = (claim?: unknown, importHash?: unknown) => {
       const state = game.current, claiming = claim === true;
       if (!state || !linked.current || (elsewhere.current && !claiming) || live.current.phase !== "playing") return;
       const data = serialize(state), raw = JSON.stringify(data);
       if (raw === lastSave.current && !claiming) return;
       if (elsewhere.current) { elsewhere.current = false; setHosted("linked"); }
-      lastSave.current = raw; window.parent.postMessage({ type: SAVE_WRITE, friend: friendId.toString(), save: data, ...(claiming ? { claim: true } : {}) }, "*");
+      // A milestone (a level, a quest) asks the host to put this save in the cloud soon, not at the next 90-second turn.
+      const mark = `${totalLevel(state.player)}:${questPoints(state)}:${Object.keys(state.player.achievements ?? {}).length}`, important = milestone.current !== "" && mark !== milestone.current;
+      milestone.current = mark;
+      lastSave.current = raw; window.parent.postMessage({ type: SAVE_WRITE, friend: friendId.toString(), save: data, ...(important ? { important: true } : {}), ...(claiming ? { claim: true, ...(typeof importHash === "string" ? { importHash } : {}) } : {}) }, "*");
     };
     saveNow.current = save;
     const timer = setInterval(save, 5000);
@@ -856,7 +886,8 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
   const logOut = () => {
     const state = game.current;
     if (!state) return;
-    saveNow.current(); held.current.clear(); setHeld(state, null);
+    // Logging out saves, and sends anything waiting up to the cloud now rather than at the next turn.
+    saveNow.current(); window.parent.postMessage({ type: CLOUD_ACTION, action: "flush" }, "*"); held.current.clear(); setHeld(state, null);
     const player = state.player;
     setHasSave({ total: totalLevel(player), combat: combatLevel(player), qp: questPoints(state), where: regionAt(state.world, player.x, player.y).name });
     setMenu(null); setModal(null); setDailyTab(null); setSelection(null); setLoggedOut(true); setPhase("title");
@@ -983,7 +1014,19 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
     audio.current?.speak([...who].reduce((sum, char) => sum + char.charCodeAt(0), 0), Math.ceil(line.text.split(" ").length / 3));
   }, [lineKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const definition = client.definition, pending = snapshot?.plays.filter(play => play.outcomeId === null).length ?? 0;
-  const savedText = hosted === "linked" ? "Your adventure saves automatically for this wallet on this device." : hosted === "waiting" ? "Connecting saves…"
+  const cloudAction = (action: CloudAction, extra: Record<string, unknown> = {}) => window.parent.postMessage({ type: CLOUD_ACTION, action, ...extra }, "*");
+  /** A save's headline numbers, read the game's own way (an unreadable save shows as nothing). */
+  const summarize = (save: Record<string, unknown> | null): SaveSummary => {
+    const current = game.current;
+    if (!save || !current) return null;
+    const probe = createGame({ familyId: current.player.familyId, friendId: Number(friendId) });
+    if (!restore(probe, save)) return null;
+    return { name: probe.player.name ?? "", total: totalLevel(probe.player), combat: combatLevel(probe.player), qp: questPoints(probe), where: regionAt(probe.world, probe.player.x, probe.player.y).name, hours: Math.round(probe.playTicks * TICK_MS / 3_600_000) };
+  };
+  const cloudOn = cloud && !["off", "unverified", "signing"].includes(cloud.status);
+  const cloudNeedsYou = cloud && ["offline", "conflict", "error", "not-owner", "import", "local-only"].includes(cloud.status);
+  const savedText = hosted === "linked" && cloudOn ? "Your adventure saves automatically: in the cloud for this wallet, and in this browser."
+    : hosted === "linked" ? "Your adventure saves automatically for this wallet on this device." : hosted === "waiting" ? "Connecting saves…"
     : hosted === "elsewhere" ? "Not saving: this adventure is open in another tab or window. Reload this page to continue here."
     : "Saves are off: this wallet's Friends couldn't be looked up yet (reload to try again), or this host doesn't provide saves (use the Realm's own page).";
   return (
@@ -1050,10 +1093,13 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
             party={{ members: [...party.current.members], onLeave: () => { party.current.leave(state); refresh(); }, onInvite: id => { party.current.invite(state, id, performance.now()); refresh(); } }}
             onLogout={logOut} fullscreen={fullscreen} onFullscreen={() => window.parent.postMessage({ type: FULLSCREEN_REQUEST }, "*")} pip={pip} onPip={() => void togglePip()}
             onExportSave={action => { const state = game.current; if (state) void makeSaveCode(state).then(text => window.parent.postMessage({ type: SAVE_EXPORT, action, text }, "*")); }}
+            cloud={<CloudControls cloud={cloud} onAction={cloudAction} />}
             onRestoreSave={async code => { const state = game.current; if (!state) return "The game isn't ready."; const error = await restoreSaveCode(state, code);
               if (!error) {
                 const at = realPoint(state.world, state.player.x, state.player.y); camera.current.x = at.x; camera.current.y = at.y; message(state, "Your adventure has been restored from a save code.", "info");
-                if (linked.current) saveNow.current(true);
+                // The code's hash goes with it, so importing the same code into the cloud twice changes nothing.
+                const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code.trim().replace(/\s+/g, ""))).then(bytes => [...new Uint8Array(bytes)].map(b => b.toString(16).padStart(2, "0")).join("")).catch(() => undefined);
+                if (linked.current) saveNow.current(true, hash);
                 else message(state, "Saves aren't connected yet, so this restore isn't saved: keep playing in this tab and it saves once they connect. If Settings still says saves are off, reload the page and restore the code again.", "info");
               } return error; }} settings={settings} setSettings={setSettings}
             friend={friend.current} trackName={audio.current?.trackName ?? ""} trackId={audio.current?.trackId ?? ""} playTrack={id => { audio.current?.play(id as TrackId); audio.current?.unlock(); setSettings({ ...settings, autoMusic: false }); }} openCard={openCard} openCards={() => setModal("cards")} openFeedback={() => { setFeedbackStatus(""); setModal("feedback"); }} openHelp={() => setModal("help")} openNerds={() => setModal("nerds")} paused={paused} saved={savedText}
@@ -1189,8 +1235,11 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
           )}
           {menu && <ContextMenu x={menu.x} y={menu.y} entries={menu.entries} onClose={() => setMenu(null)} />}
           {paused && <div className="realm-paused" role="status">Paused</div>}
+          {cloudNeedsYou && cloud.status !== "conflict" && cloud.status !== "import" && <button type="button" className="realm-cloud-chip" data-cloud={cloud.status} onClick={() => { setTab("settings"); setSideOpen(true); }}>
+            {cloud.status === "offline" ? "☁ Offline: saved in this browser" : cloud.status === "not-owner" ? "☁ Cloud saving stopped" : cloud.status === "error" ? "☁ Cloud save refused" : "☁ Not in the cloud yet"}</button>}
         </>}
 
+        {(phase === "title" || phase === "playing") && state && <CloudDialogs cloud={cloud} friendId={Number(friendId)} summarize={summarize} onAction={cloudAction} />}
         {phase === "title" && state && player && (
           <div className="realm-title">
             <div className="realm-logo"><small>An old-school adventure for your Rare Friend</small><h1 aria-label="RareFriends Realm" dangerouslySetInnerHTML={{ __html: TITLE_LOGO }} /></div>
@@ -1199,9 +1248,10 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
               <div>
                 <h2>{player.name ? <>{player.name} <small className="realm-title-id">({player.friendId})</small></> : <>Friend #{player.friendId}</>}</h2>
                 <p><b>{FAMILY_NAMES[player.familyId]}</b>: {FAMILY_PERKS[player.familyId].title}. {FAMILY_PERKS[player.familyId].text}</p>
-                {loggedOut && <p className="realm-logged-out" role="status">{hosted === "linked" ? <>✓ <b>Saved and logged out.</b></> : <b>Logged out.</b>} {hosted === "linked" ? "Your adventure is safe in this browser for this wallet and Friend. Continue any time." : hosted === "elsewhere" ? "This tab stopped saving because the adventure is open in another tab: continue there, or reload this page." : "Saves weren't connected: copy a save code from Settings next time to keep your progress."} For an extra copy on any device, use Settings → Copy save code.</p>}
+                {loggedOut && <p className="realm-logged-out" role="status">{hosted === "linked" ? <>✓ <b>Saved and logged out.</b></> : <b>Logged out.</b>} {hosted === "linked" && cloudOn ? "Your adventure is saved in the cloud for this wallet and Friend: continue here or on any device." : hosted === "linked" ? "Your adventure is safe in this browser for this wallet and Friend. Continue any time." : hosted === "elsewhere" ? "This tab stopped saving because the adventure is open in another tab: continue there, or reload this page." : "Saves weren't connected: copy a save code from Settings next time to keep your progress."} {cloudOn ? "" : "For an extra copy on any device, use Settings → Copy save code."}</p>}
                 {hasSave ? <p className="realm-save">Saved adventure: total level <b>{hasSave.total}</b> · combat <b>{hasSave.combat}</b> · <b>{hasSave.qp}</b> quest points · in {hasSave.where}</p>
                   : hosted === "waiting" ? <p className="realm-muted">Looking for this wallet's saved adventure…</p> : <p className="realm-muted">A new adventure: 19 skills, 7 quests, one large world.</p>}
+                <CloudControls cloud={cloud} onAction={cloudAction} compact />
               </div>
             </div>
             <div className="realm-buttons center">
@@ -1212,7 +1262,7 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
               <button type="button" onClick={() => setModal("help")}>How to play</button>
               <LanguagePicker value={settings.language} onChange={language => setSettings({ ...settings, language })} />
             </div>
-            <p className="realm-title-foot">Now playing: {trackById("theme").name} · Simulated $RAREFRIENDS · Saves per wallet on this device</p>
+            <p className="realm-title-foot">Now playing: {trackById("theme").name}{cloudOn ? " · Simulated $RAREFRIENDS · Saves per wallet, in the cloud" : " · Simulated $RAREFRIENDS · Saves per wallet on this device"}</p>
             {modal === "help" && <HelpModal onClose={() => setModal(null)} onFeedback={() => { setFeedbackStatus(""); setModal("feedback"); }} />}
           </div>
         )}

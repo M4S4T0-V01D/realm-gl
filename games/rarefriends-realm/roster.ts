@@ -62,3 +62,52 @@ export type ShareAction = "post" | "copy" | "save";
 export const SAVE_EXPORT = "rarefriends-realm:save-export";
 export const SAVE_EXPORT_RESULT = "rarefriends-realm:save-export-result";
 export type ShareOutcome = "shared" | "copied-and-opened" | "saved-and-opened" | "copied" | "saved" | "cancelled" | "failed";
+
+/**
+ * Cloud saves (host/cloud.ts, cloud/src/worker.ts). The host page keeps the wallet, the session and the network; the
+ * game only shows where its save is and passes on the player's choices.
+ * - The host sends CLOUD_STATE whenever that changes.
+ * - The game sends CLOUD_ACTION on the player's click: "verify" (sign in with the wallet: a message, not a
+ *   transaction), "sign-out", "import" (put this browser's adventure in the cloud), "skip-import", "keep-cloud" /
+ *   "keep-local" (answering a conflict), "retry", "reload" (to load a save that can't replace one in play) and
+ *   "flush" (logging out: upload whatever is waiting now).
+ * - SAVE_WRITE may carry `important: true` (a milestone: save to the cloud soon) and, after a save code is restored,
+ *   `importHash` (so the same code can't be imported twice).
+ * - HOST_STATE may carry `replace: true`: a different save chosen on the title screen.
+ */
+export const CLOUD_STATE = "rarefriends-realm:cloud-state";
+export const CLOUD_ACTION = "rarefriends-realm:cloud-action";
+export type CloudAction = "verify" | "sign-out" | "import" | "skip-import" | "keep-cloud" | "keep-local" | "retry" | "reload" | "flush";
+export type CloudConflict = {
+  cloud: Record<string, unknown>; cloudAt: number; cloudVersion: number;
+  local: Record<string, unknown> | null; localAt: number | null;
+  /** Found when the game started (it can still swap saves) or during play (taking the cloud's reloads the game). */
+  where: "start" | "play";
+};
+export type CloudState = {
+  status: "off" | "unverified" | "signing" | "loading" | "saved" | "saving" | "offline" | "conflict" | "import" | "local-only" | "not-owner" | "error";
+  address?: string; version?: number; savedAt?: number;
+  /** Why it isn't signed in, or what went wrong: "cancelled", "failed", "expired", "no-wallet", or the server's reason. */
+  error?: string;
+  conflict?: CloudConflict;
+  importable?: Record<string, unknown>;
+  /** The cloud had no save even though this browser had synced one (it was reset): offered back as an import. */
+  lost?: boolean; imported?: boolean; duplicate?: boolean;
+};
+const CLOUD_STATUSES = new Set<CloudState["status"]>(["off", "unverified", "signing", "loading", "saved", "saving", "offline", "conflict", "import", "local-only", "not-owner", "error"]);
+/** Check a CLOUD_STATE from the host before showing it. */
+export function parseCloudState(raw: unknown): CloudState | null {
+  if (!raw || typeof raw !== "object") return null;
+  const s = raw as Record<string, unknown>;
+  if (!CLOUD_STATUSES.has(s.status as CloudState["status"])) return null;
+  const num = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  const save = (value: unknown) => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+  const conflict = s.conflict && typeof s.conflict === "object" ? s.conflict as Record<string, unknown> : null;
+  return {
+    status: s.status as CloudState["status"],
+    address: typeof s.address === "string" && /^0x[0-9a-fA-F]{40}$/.test(s.address) ? s.address : undefined,
+    version: num(s.version), savedAt: num(s.savedAt), error: typeof s.error === "string" ? s.error.slice(0, 200) : undefined,
+    conflict: conflict && save(conflict.cloud) ? { cloud: save(conflict.cloud)!, cloudAt: num(conflict.cloudAt) ?? 0, cloudVersion: num(conflict.cloudVersion) ?? 0, local: save(conflict.local) ?? null, localAt: num(conflict.localAt) ?? null, where: conflict.where === "play" ? "play" : "start" } : undefined,
+    importable: save(s.importable), lost: s.lost === true, imported: s.imported === true, duplicate: s.duplicate === true,
+  };
+}

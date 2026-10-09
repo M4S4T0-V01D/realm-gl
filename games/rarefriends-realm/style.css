@@ -540,3 +540,18 @@
 .realm-lore { margin-top: 8px; padding: 6px 8px; border-left: 2px solid var(--gold); font-size: 11px; color: #d8d3c6; font-style: italic; }
 .realm-bestiary .realm-quest-dot.mastery-0 { background: #8a8680; } .realm-bestiary .realm-quest-dot.mastery-1 { background: #c9a84a; }
 .realm-bestiary .realm-quest-dot.mastery-2 { background: #e0882c; } .realm-bestiary .realm-quest-dot.mastery-3 { background: #6fd18a; }
+
+/* Cloud saves (cloudui.tsx): where the adventure is saved, the sign-in, imports and the two-versions question. */
+.realm-cloud { margin: 6px 0; }
+.realm-cloud .realm-cloud-line { margin: 4px 0; font-size: 12px; }
+.realm-cloud.compact .realm-cloud-line { font-size: 11px; color: var(--muted); }
+.realm-cloud.compact .realm-buttons { margin-top: 4px; }
+.realm-cloud[data-cloud="saved"] .realm-cloud-line { color: #2f6b3a; }
+.realm-cloud[data-cloud="offline"] .realm-cloud-line, .realm-cloud[data-cloud="error"] .realm-cloud-line, .realm-cloud[data-cloud="not-owner"] .realm-cloud-line { color: #8a4b12; }
+.realm-cloud-chip { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 6; padding: 3px 10px; font-size: 11px; font-weight: 700; background: var(--paper); border: 2px solid var(--ink); box-shadow: 2px 2px 0 var(--ink); cursor: pointer; }
+.realm-cloud-chip[data-cloud="offline"], .realm-cloud-chip[data-cloud="error"], .realm-cloud-chip[data-cloud="not-owner"] { background: #f6e3c4; }
+.realm-cloud-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0; }
+.realm-cloud-card { border: 2px solid var(--ink); background: #fff; padding: 6px 10px; box-shadow: 2px 2px 0 var(--ink); }
+.realm-cloud-card h4 { margin: 0 0 2px; font-size: 13px; }
+.realm-cloud-card ul { margin: 4px 0 0; padding-left: 16px; font-size: 12px; }
+@media (max-width: 560px) { .realm-cloud-cards { grid-template-columns: 1fr; } }

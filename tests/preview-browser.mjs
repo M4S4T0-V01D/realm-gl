@@ -78,10 +78,10 @@ try {
     assert.equal(await trailer.evaluate(video => video.muted), false, `${name}: unmuted`);
     assert.equal(await sound.isHidden(), true);
     // The video carousel: the newest update first, the reel of what's next under it, and "next" moving on to the trailer.
-    assert.match(await trailer.getAttribute("src"), /update-pursuance\.mp4$/, `${name}: the newest update plays first`);
-    assert.equal(await page.locator("#trailer-reel button").count(), 10, `${name}: the reel shows the other ten videos`);
+    assert.match(await trailer.getAttribute("src"), /update-cloud\.mp4$/, `${name}: the newest update plays first`);
+    assert.equal(await page.locator("#trailer-reel button").count(), 11, `${name}: the reel shows the other eleven videos`);
     await page.locator("#trailer-next").click();
-    assert.match(await trailer.getAttribute("src"), /update-languages\.mp4$/, `${name}: next plays the update before it`);
+    assert.match(await trailer.getAttribute("src"), /update-pursuance\.mp4$/, `${name}: next plays the update before it`);
     assert.equal(await trailer.evaluate(video => video.muted), false, `${name}: sound stays on from one video to the next`);
     // The picture galleries: every figure of the two grids in a filmstrip, the stage showing the one chosen, wrapping round.
     const galleries = page.locator(".gallery");

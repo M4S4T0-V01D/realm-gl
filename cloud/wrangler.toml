@@ -1,0 +1,22 @@
+# RareFriends Realm cloud saves. Deploy from this folder: npx wrangler deploy (see README.md).
+name = "rarefriends-realm-saves"
+main = "src/worker.ts"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "rarefriends-realm-saves"
+database_id = "6ca1db8c-4555-4c95-9bcd-1c4a9fd73735"
+
+[vars]
+# Robinhood Chain, where Friends live: ownership reads and contract-wallet signature checks (read-only, no key).
+RPC_URL = "https://rpc.mainnet.chain.robinhood.com"
+CHAIN_ID = "4663"
+# The Generations collection (GENERATION_SPRITE_MANIFEST.generations in FriendSDK v0.1.4).
+COLLECTION = "0x14C49e6118F46525dE9ab41a51cBAA3c6EBF181D"
+# Only the Realm's own pages may sign in and save (both renderers are on this origin).
+ORIGINS = "https://m4s4t0-v01d.github.io"
+
+[observability]
+enabled = true

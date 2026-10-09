@@ -176,7 +176,6 @@ drawn with its own canonical art, and adds XP by generation (Gen 1 +5% … Gen 5
 
 | Idea | Needs |
 | --- | --- |
-| Cloud saves across devices | A save/persistence API (today: per-device local storage) |
 | Trading between holders (a Grand Exchange for Friends) | Cross-player actions and transfers |
 | RF-priced cosmetic wardrobe with part burned | A cosmetic purchase action with RF burn |
 | Live caskets with Dice RNG | The existing live chance-game contract flow, after Rare Friends review |
@@ -242,16 +241,18 @@ The mock wallet exists only in tests. `dev` and public builds always use the rea
 
 The runtime page is the SDK's own **`GameHost`**: wallet connection, owned-Friend picker, fresh
 `readGenerationEligibility` check, simulated ledger, confirmations and the `allow-scripts` sandbox.
-`host/runtime.tsx` adds four things the SDK doesn't supply:
+`host/runtime.tsx` adds five things the SDK doesn't supply:
 
 1. **Owned-Friend roster.** A read-only watcher (`eth_accounts` only) runs the SDK's account-filtered `readOwnedFriends` (with retries for public-RPC rate limits). It never scans the collection.
 2. **Per-wallet saves** in the trusted page's `localStorage` (the sandbox has no storage), keyed by wallet address and Friend, so each of your Friends has its own adventure.
-3. **Playing together** (`host/net.ts`), below.
-4. **Sharing the adventurer card.** On your click, the page uses the share sheet (phones) or copies the picture and opens a prefilled X post (desktop). Nothing posts without you pressing Post.
+3. **Cloud saves** (`host/cloud.ts`, the `cloud/` Worker, shared with the main game: the same service, the same characters). Verify your wallet once and the browser save is mirrored to the Realm's save service, so the adventure follows the wallet to any device and between both renderers. It is versioned (an older save never overwrites a newer one; two diverged copies are put to the player), imports existing adventures once, and falls back to the browser save when offline. It is not a game server: multiplayer stays peer to peer. See [cloud/README.md](cloud/README.md).
+4. **Playing together** (`host/net.ts`), below.
+5. **Sharing the adventurer card.** On your click, the page uses the share sheet (phones) or copies the picture and opens a prefilled X post (desktop). Nothing posts without you pressing Post.
 
 The game receives the roster and save only over `postMessage` from its parent window, and uses them only if the
-roster contains the Friend the runtime just verified. Saves are validated on load. There are no signatures,
-transactions or extra wallet prompts. Under the plain SDK CLI (`npx friendsdk dev` / `test`), the game runs without these extras.
+roster contains the Friend the runtime just verified. Saves are validated on load. There are no transactions or
+approvals; the one wallet prompt is the optional cloud sign-in, a plain message the page checks word for word before
+the wallet sees it (`tests/preview-bundle.test.mjs` keeps the published build to that). Under the plain SDK CLI (`npx friendsdk dev` / `test`), the game runs without these extras.
 
 ## Playing together
 
@@ -276,7 +277,7 @@ over `postMessage`, the same way it relays saves.
 
 ## Known issues and limitations
 
-- Saves live in this browser on this device, keyed by wallet address and Friend. They are client-side, so a determined player could edit their own (simulated) progress.
+- Saves live in this browser, keyed by wallet address and Friend, and (once the wallet is verified) in the cloud. The game is client-side, so a determined player could still edit their own (simulated) progress: the cloud refuses impossible or implausible saves but can't make that impossible (see `cloud/README.md`).
 - Caskets' RF balance and kept relics live in the SDK's session ledger and reset on reload; wardrobe pieces are saved.
 - Multiplayer shares players, chat, trades, dropped items and the HP of monsters being fought, not the whole world simulation: monsters nobody is fighting wander differently in each game, and each player gets their own loot. Trades have no server referee, so a player who edits their own game could cheat a trade; the protocol only guarantees honest games agree. Friend IDs are self-reported. Peers behind very strict networks may not connect (no TURN relay).
 - Audio is synthesized in the browser and starts on your first tap. On iPhones before iOS 17, silent mode may keep it quiet.

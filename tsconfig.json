@@ -19,7 +19,9 @@
   "include": [
     "games/**/*.ts",
     "games/**/*.tsx",
+    "host/**/*.ts",
     "host/**/*.tsx",
+    "cloud/**/*.ts",
     "site/**/*.ts",
     "types.d.ts"
   ]

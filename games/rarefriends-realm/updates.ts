@@ -4,6 +4,13 @@
  */
 export type Update = { id: number; date: string; title: string; items: readonly string[] };
 export const UPDATES: readonly Update[] = [
+  { id: 96, date: "2026-10-09", title: "Your adventure, in the cloud", items: [
+    "Cloud saves: verify your wallet once (Settings, or the title screen) and your adventure saves online by itself, every minute or so and after every level and quest, and follows your wallet to any device.",
+    "Verifying is a message your wallet signs, never a transaction, and it costs nothing. No more save codes to keep: they still work, as an extra copy.",
+    "Played before cloud saves? After you verify, the Realm offers to bring your existing adventure up to the cloud, once, keeping a copy in your browser until the cloud has it.",
+    "Played on two devices at once? The Realm shows you both versions side by side and lets you choose. An older save never overwrites a newer one, and the other version is always kept.",
+    "If the cloud can't be reached, nothing changes: your adventure keeps saving in your browser and goes up when the cloud is back. Playing together stays peer to peer, exactly as before.",
+  ] },
   { id: 95, date: "2026-10-09", title: "Pursuance, the Realm's wars, and a logo", items: [
     "Slayer is now Pursuance: knowing the Realm's creatures as well as putting them down. Examine a creature, fight it, read its tracks, and what you learn goes in your Pursuance journal (on the Quest journal tab), a fact at a time, each paying once. Your levels, contracts and points carry over.",
     "Judge a creature by eye as your Pursuance grows, find its weakness by spell, faith or poison, learn its tricks when it uses them, and master it: Familiar, Seasoned and Expert make you better against it. Only a weakness you know shows by its health.",

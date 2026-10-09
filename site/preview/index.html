@@ -245,13 +245,13 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   </div>
   <div class="wrap trailer" id="trailer">
     <div class="frame">
-      <video id="trailer-video" src="media/update-pursuance.mp4" poster="media/update-pursuance-poster.jpg" autoplay muted playsinline controls preload="metadata"
-        aria-label="RareFriends Realm Pursuance video: tracks in BarkReach at night and the trail on the map, a marked frost yeti, examining a frost wolf, fire finding a bark lurker's weakness, the Pursuance journal filling in, a marked yeti's trophy, Warden Thistle, the Regiment against the Federation, the Knights of the Dawn against the dead, and Hollowmere's soldiers rallying"></video>
+      <video id="trailer-video" src="media/update-cloud.mp4" poster="media/update-cloud-poster.jpg" autoplay muted playsinline controls preload="metadata"
+        aria-label="RareFriends Realm cloud saves video: the title screen's Verify wallet button, the wallet's sign-in message saying it is not a transaction, the cloud saving, a second device continuing the same adventure, the two-versions question, importing an existing adventure, playing offline, and the cloud panel in every language"></video>
       <button class="btn primary sound" id="trailer-sound" type="button">🔊 Watch with sound</button>
       <button class="arrow prev" id="trailer-prev" type="button" aria-label="Previous video">‹</button>
       <button class="arrow next" id="trailer-next" type="button" aria-label="Next video">›</button>
     </div>
-    <p><span class="count" id="trailer-count">1 / 6</span><b id="trailer-title">Pursuance, and the Realm at war</b> <span id="trailer-note">New: Slayer becomes Pursuance. Read tracks, find a creature's weak spot, fill your Pursuance journal, hunt marked creatures for trophies and take the Warden's contracts; and every soldier in the Realm now fights. Every shot recorded straight from the game.</span></p>
+    <p><span class="count" id="trailer-count">1 / 7</span><b id="trailer-title">Your adventure, in the cloud</b> <span id="trailer-note">New: cloud saves. Verify your wallet once (a message it signs, never a transaction) and your adventure saves online by itself and follows your wallet to any device. Played before? Bring your adventure up once. Two devices at once? You choose which to keep. Offline? It keeps saving in your browser. Every screen recorded straight from the game.</span></p>
     <div class="reel" id="trailer-reel" aria-label="Up next"></div>
   </div>
   <div class="wrap hero">
@@ -388,7 +388,7 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
       <article class="feature" style="--accent: var(--rose)"><b class="icon">🜂</b><h3>Dragons</h3><p>Wyrmreach's ash drakes, cinder drakes and Old Cinder (level 148) in her lava crater. Dragonfire burns through anything but King Hollis's Wyrmward shield.</p></article>
       <article class="feature" style="--accent: var(--lavender)"><b class="icon">◈</b><h3>The Wizards' Tower</h3><p>The Archmage starts you in magic with robes, a staff and sigils. Mine sigil stones below and press them at eleven altars across the Realm: Sigilcraft.</p></article>
       <article class="feature" style="--accent: var(--butter)"><b class="icon">➴</b><h3>Fletching and trade</h3><p>Shafts, bows and war bows from logs, arrowheads and bolts from the anvil, crossbows from metal limbs on a carved stock, and forged gear to level 90 from monster materials. Merchants pay up to 70% for their trade: fish, logs, ore, sigils, hides, gems, bows.</p></article>
-      <article class="feature" style="--accent: var(--rose)"><b class="icon">◆</b><h3>Friends, relics and saves</h3><p>Your other owned Friends walk behind you (+1–5% XP by generation). Rare Caskets (simulated RF) hold relics and 12 wardrobe pieces painted right into your Friend's sprite. Progress saves per wallet.</p></article>
+      <article class="feature" style="--accent: var(--rose)"><b class="icon">◆</b><h3>Friends, relics and saves</h3><p>Your other owned Friends walk behind you (+1–5% XP by generation). Rare Caskets (simulated RF) hold relics and 12 wardrobe pieces painted right into your Friend's sprite. Progress saves per wallet, in the cloud: verify once and it follows you to any device.</p></article>
     </div>
   </div>
 </section>
@@ -526,6 +526,9 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   // music player take turns.
   (() => {
     const VIDEOS = [
+      { src: "media/update-cloud.mp4", poster: "media/update-cloud-poster.jpg", title: "Your adventure, in the cloud", when: "October 2026",
+        note: "New: cloud saves. Verify your wallet once (a message it signs, never a transaction) and your adventure saves online by itself and follows your wallet to any device. Played before? Bring your adventure up once. Two devices at once? You choose which to keep. Offline? It keeps saving in your browser. Every screen recorded straight from the game.",
+        label: "RareFriends Realm cloud saves video: the title screen's Verify wallet button, the wallet's sign-in message saying it is not a transaction, the cloud saving, a second device continuing the same adventure, the two-versions question, importing an existing adventure, playing offline, and the cloud panel in every language" },
       { src: "media/update-pursuance.mp4", poster: "media/update-pursuance-poster.jpg", title: "Pursuance, and the Realm at war", when: "October 2026",
         note: "New: Slayer becomes Pursuance. Read tracks, find a creature's weak spot, fill your Pursuance journal, hunt marked creatures for trophies and take the Warden's contracts; and every soldier in the Realm now fights. Every shot recorded straight from the game.",
         label: "RareFriends Realm Pursuance video: tracks in BarkReach at night and the trail on the map, a marked frost yeti, examining a frost wolf, fire finding a bark lurker's weakness, the Pursuance journal filling in, a marked yeti's trophy, Warden Thistle, the Regiment against the Federation, the Knights of the Dawn against the dead, and Hollowmere's soldiers rallying" },

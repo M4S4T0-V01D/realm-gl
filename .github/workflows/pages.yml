@@ -1,4 +1,8 @@
-name: Check and deploy preview
+name: Check and deploy the old WebGL address
+
+# Realm WebGL is part of the Realm now (Settings → Rendering mode; github.com/M4S4T0-V01D/rarefriends-realm).
+# This repository's site is the old address's compatibility entry point: redirect/ forwards every visit to the Realm
+# with ?renderer=webgl (invitations and other parameters kept), and its preview pages to the Realm's.
 
 on:
   push:
@@ -19,21 +23,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run check
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:browser
-      - run: npm run build
-      - run: touch games/rarefriends-realm/.friendsdk/.nojekyll
-      # Preview page for sharing: /preview/ with the screenshots from docs/ and the soundtrack jukebox.
-      - run: npm run build:preview
+      - run: node tests/forward-browser.mjs
+      - run: touch redirect/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: games/rarefriends-realm/.friendsdk
+          path: redirect
 
   deploy:
-    # Public playable preview on GitHub Pages (Settings → Pages → Source: GitHub Actions).
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: check
     runs-on: ubuntu-latest

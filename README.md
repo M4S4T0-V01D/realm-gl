@@ -1,5 +1,10 @@
 # ⚔ RareFriends Realm
 
+> **Realm WebGL is part of the Realm now.** Play it at [m4s4t0-v01d.github.io/rarefriends-realm](https://m4s4t0-v01d.github.io/rarefriends-realm/?renderer=webgl) and choose **Settings → Rendering mode → WebGL**. It's the same game, the same character and the same saves, drawn on your graphics card. The renderer lives in the main repository ([M4S4T0-V01D/rarefriends-realm](https://github.com/M4S4T0-V01D/rarefriends-realm), `games/rarefriends-realm/gl.ts`).
+>
+> This repository's site (`m4s4t0-v01d.github.io/realm-gl/`) is kept as a compatibility address. It forwards every visit to the Realm in WebGL mode, keeping invitations and other parameters (`redirect/`, tested by `tests/forward-browser.mjs`). The code below is the WebGL build as it was when it moved into the Realm.
+
+
 *An old-school adventure starring the Rare Friend you own: twenty-one skills, twenty quests, a continent of a world with the original Realm at its heart, and a Hollow King to end. Winner of the Rare Friends Vibeathon.*
 
 **▶ Play: https://m4s4t0-v01d.github.io/rarefriends-realm/** · **🎬 Trailer: https://m4s4t0-v01d.github.io/rarefriends-realm/preview/#trailer** · **Preview page: https://m4s4t0-v01d.github.io/rarefriends-realm/preview/** · **Lore: https://m4s4t0-v01d.github.io/rarefriends-realm/preview/lore.html** · **Skill guides: https://m4s4t0-v01d.github.io/rarefriends-realm/preview/guides.html**

@@ -289,8 +289,8 @@
   background: radial-gradient(ellipse at center, #16161622 0%, #16161688 70%, #161616cc 100%); }
 .realm-logo { text-align: center; color: var(--paper); text-shadow: 3px 3px 0 #000; }
 .realm-logo small { font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: var(--butter); }
-.realm-logo h1 { margin: 2px 0 0; font-size: 58px; line-height: .95; letter-spacing: .02em; }
-.realm-logo h1 span { display: block; font-size: 76px; color: var(--gold); letter-spacing: .18em; }
+.realm-logo h1 { margin: 8px 0 0; line-height: 0; }
+.realm-logo h1 svg { width: 372px; height: auto; filter: drop-shadow(4px 4px 0 rgba(0,0,0,.55)); }
 .realm-title-card { display: flex; align-items: center; gap: 14px; max-width: 560px; padding: 12px 16px; background: var(--card); border: 2px solid var(--ink); box-shadow: 5px 5px 0 var(--ink); }
 .realm-title-card .realm-portrait { width: 96px; height: 96px; background: var(--rose); border: 2px solid var(--ink); flex: none; }
 .realm-title-card h2 { margin: 0 0 4px; font-size: 18px; }

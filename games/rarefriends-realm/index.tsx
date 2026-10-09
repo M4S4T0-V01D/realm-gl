@@ -14,6 +14,10 @@ import {
   chooseOption, closeInterfaces, collectFromCasket, creditReferral, emoteProblem, performEmote, syncMonster, continueDialogue, grantBundle, menuFor, tailorChoices, unlockMusic, restore, serialize, setFollower, setHeld, setRelics, tick, toggleRun, toggleSneak, toggleMount, grantMount, walkTo, type OwnedFriend, type Selection,
 } from "./engine.ts";
 import { LANGUAGES, languageOf, setLanguage } from "./i18n.ts";
+import { logoSvg } from "./logo.ts";
+
+/** The Realm's logo on the title screen: the castle shield and RAREFRIENDS REALM, in pixels (logo.ts). */
+const TITLE_LOGO = logoSvg("horizontal");
 import { HIGH_QUALITY, PITCH, RENDER_PROFILE, VIEW, ZOOM, addPrint, daylight, minimapTile, northAngle, pickAt, renderMinimap, renderScene, toScreen, toTile, type Camera, type ClickMarker, type Firework, type HitSplat } from "./render.ts";
 import {
   BankModal, CardsModal, CarvingBuffs, FeedbackModal, ChatBox, ContextMenu, DailyModal, FellowshipModal, HomeModal, JoinModal, RfActionModal, FirstStepsCard, GuideModal, TradeModal, DialogueBox, FriendPortrait, HelpModal, LampModal, NamingModal, LevelUpBox, Modal, Orbs, PixelIcon, ProductionBox, ShopModal, SidePanel, TABS, WorldMapModal,
@@ -1189,7 +1193,7 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
 
         {phase === "title" && state && player && (
           <div className="realm-title">
-            <div className="realm-logo"><small>An old-school adventure for your Rare Friend</small><h1>RareFriends<span>Realm</span></h1></div>
+            <div className="realm-logo"><small>An old-school adventure for your Rare Friend</small><h1 aria-label="RareFriends Realm" dangerouslySetInnerHTML={{ __html: TITLE_LOGO }} /></div>
             <div className="realm-title-card">
               <FriendPortrait sprites={friend.current} size={96} worn={[...player.worn, ...(["cape", "head", "shield", "weapon", "neck", "body", "legs", "hands", "feet"] as const).flatMap(slot => player.equipment[slot] ? [player.equipment[slot]!] : [])]} />
               <div>

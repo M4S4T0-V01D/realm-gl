@@ -53,7 +53,7 @@ export const ru: Dictionary = {
   "{skill} XP: {n}": "Опыт ({skill}): {n}", "{skill} XP: {n} · Next level at: {m} · Remaining: {r}": "Опыт ({skill}): {n} · Следующий уровень: {m} · Осталось: {r}", "Total XP: {n} · XP rate ×{r}": "Всего опыта: {n} · Множитель опыта ×{r}",
   "Can make now": "Можно сделать сейчас", "Search recipes": "Поиск рецептов", "Search recipes or ingredients": "Поиск рецептов или ингредиентов", "No recipes match.": "Подходящих рецептов нет.",
   // ---------- Quests ----------
-  "Quest points:": "Очки заданий:", "Quest points": "Очки заданий", "of": "из", "quests complete": "заданий выполнено", "Not started": "Не начато", "In progress": "В процессе", "Complete": "Выполнено",
+  "Quest points:": "Очки заданий:", "Quest points": "Очки заданий", "Quest point": "Очко задания", "of": "из", "quests complete": "заданий выполнено", "Not started": "Не начато", "In progress": "В процессе", "Complete": "Выполнено",
   "Novice": "Новичок", "Intermediate": "Средний", "Experienced": "Опытный", "Master": "Мастер", "Grandmaster": "Гроссмейстер", "Long": "Длинное", "QP": "ОЗ",
   "White: not started · Orange: in progress · Green: complete": "Белый: не начато · Оранжевый: в процессе · Зелёный: выполнено", "‹ Quest list": "‹ Список заданий", "Start:": "Начало:", "Rewards:": "Награды:",
   "A Friend's Feast": "Пир для Friend", "Grumblin Trouble": "Беда с грамблинами", "The Cold Forge": "Остывшая кузня", "Hollow Whispers": "Пустой шёпот", "The Lost Glimmer": "Потерянный отблеск",

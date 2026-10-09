@@ -4,6 +4,10 @@
  */
 export type Update = { id: number; date: string; title: string; items: readonly string[] };
 export const UPDATES: readonly Update[] = [
+  { id: 94, date: "2026-10-09", title: "A video in every language, and the last few words", items: [
+    "A new video on the preview site shows the Realm in thirteen languages: your Friend and the townsfolk talking, the Realm Guide, the quest journal, Examine, a skill guide, this log and the website itself.",
+    "The last English words it caught are translated: a quest's single quest point in the journal, what a skill guide unlocks next, and the Burned in an earlier entry of this log.",
+  ] },
   { id: 93, date: "2026-10-08", title: "Your Friend finds its voice, and the Realm speaks every language", items: [
     "Your Friend's chatter has been rewritten from start to finish: each of the nine Friend families talks in its own voice about where you are, what you're doing, the skills you're training and what you've just beaten.",
     "Your Friend speaks your language now, and when it pipes up in public chat, everyone reads it the way it was said.",

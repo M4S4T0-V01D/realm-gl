@@ -53,7 +53,7 @@ export const tr: Dictionary = {
   "{skill} XP: {n}": "{skill} XP: {n}", "{skill} XP: {n} · Next level at: {m} · Remaining: {r}": "{skill} XP: {n} · Sonraki seviye: {m} · Kalan: {r}", "Total XP: {n} · XP rate ×{r}": "Toplam XP: {n} · XP oranı ×{r}",
   "Can make now": "Şimdi yapılabilir", "Search recipes": "Tarif ara", "Search recipes or ingredients": "Tarif ya da malzeme ara", "No recipes match.": "Eşleşen tarif yok.",
   // ---------- Quests ----------
-  "Quest points:": "Görev puanı:", "Quest points": "Görev puanı", "of": "/", "quests complete": "görev tamamlandı", "Not started": "Başlanmadı", "In progress": "Sürüyor", "Complete": "Tamamlandı",
+  "Quest points:": "Görev puanı:", "Quest points": "Görev puanı", "Quest point": "Görev puanı", "of": "/", "quests complete": "görev tamamlandı", "Not started": "Başlanmadı", "In progress": "Sürüyor", "Complete": "Tamamlandı",
   "Novice": "Acemi", "Intermediate": "Orta", "Experienced": "Deneyimli", "Master": "Usta", "Grandmaster": "Büyük usta", "Long": "Uzun", "QP": "GP",
   "White: not started · Orange: in progress · Green: complete": "Beyaz: başlanmadı · Turuncu: sürüyor · Yeşil: tamamlandı", "‹ Quest list": "‹ Görev listesi", "Start:": "Başlangıç:", "Rewards:": "Ödüller:",
   "A Friend's Feast": "Bir Friend'in Ziyafeti", "Grumblin Trouble": "Grumblin Belası", "The Cold Forge": "Soğuk Ocak", "Hollow Whispers": "Boş Fısıltılar", "The Lost Glimmer": "Kayıp Parıltı",

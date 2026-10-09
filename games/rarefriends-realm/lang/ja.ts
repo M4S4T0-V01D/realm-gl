@@ -84,7 +84,7 @@ export const ja: Dictionary = {
   "Total XP: {n} · XP rate ×{r}": "合計XP: {n} · XP倍率 ×{r}",
   "Can make now": "今作れる", "Search recipes": "レシピを検索", "Search recipes or ingredients": "レシピや材料を検索", "No recipes match.": "該当するレシピがありません。",
   // ---------- Quests ----------
-  "Quest points:": "クエストポイント:", "Quest points": "クエストポイント", "of": "/", "quests complete": "件のクエストを達成",
+  "Quest points:": "クエストポイント:", "Quest points": "クエストポイント", "Quest point": "クエストポイント", "of": "/", "quests complete": "件のクエストを達成",
   "Not started": "未着手", "In progress": "進行中", "Complete": "達成",
   "Novice": "初級", "Intermediate": "中級", "Experienced": "上級", "Master": "達人", "Grandmaster": "極", "Long": "長編", "QP": "QP",
   "White: not started · Orange: in progress · Green: complete": "白: 未着手 · オレンジ: 進行中 · 緑: 達成",

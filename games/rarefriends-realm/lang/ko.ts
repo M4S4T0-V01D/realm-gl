@@ -84,7 +84,7 @@ export const ko: Dictionary = {
   "Total XP: {n} · XP rate ×{r}": "총 XP: {n} · XP 배율 ×{r}",
   "Can make now": "지금 만들 수 있음", "Search recipes": "레시피 검색", "Search recipes or ingredients": "레시피나 재료 검색", "No recipes match.": "일치하는 레시피가 없습니다.",
   // ---------- Quests ----------
-  "Quest points:": "퀘스트 포인트:", "Quest points": "퀘스트 포인트", "of": "/", "quests complete": "개 퀘스트 완료",
+  "Quest points:": "퀘스트 포인트:", "Quest points": "퀘스트 포인트", "Quest point": "퀘스트 포인트", "of": "/", "quests complete": "개 퀘스트 완료",
   "Not started": "시작 전", "In progress": "진행 중", "Complete": "완료",
   "Novice": "초급", "Intermediate": "중급", "Experienced": "상급", "Master": "마스터", "Grandmaster": "그랜드마스터", "Long": "장편", "QP": "QP",
   "White: not started · Orange: in progress · Green: complete": "흰색: 시작 전 · 주황: 진행 중 · 초록: 완료",

@@ -53,7 +53,7 @@ export const vi: Dictionary = {
   "{skill} XP: {n}": "XP {skill}: {n}", "{skill} XP: {n} · Next level at: {m} · Remaining: {r}": "XP {skill}: {n} · Cấp tiếp theo: {m} · Còn lại: {r}", "Total XP: {n} · XP rate ×{r}": "Tổng XP: {n} · Hệ số XP ×{r}",
   "Can make now": "Làm được ngay", "Search recipes": "Tìm công thức", "Search recipes or ingredients": "Tìm công thức hoặc nguyên liệu", "No recipes match.": "Không có công thức phù hợp.",
   // ---------- Quests ----------
-  "Quest points:": "Điểm nhiệm vụ:", "Quest points": "Điểm nhiệm vụ", "of": "/", "quests complete": "nhiệm vụ đã hoàn thành", "Not started": "Chưa bắt đầu", "In progress": "Đang làm", "Complete": "Hoàn thành",
+  "Quest points:": "Điểm nhiệm vụ:", "Quest points": "Điểm nhiệm vụ", "Quest point": "Điểm nhiệm vụ", "of": "/", "quests complete": "nhiệm vụ đã hoàn thành", "Not started": "Chưa bắt đầu", "In progress": "Đang làm", "Complete": "Hoàn thành",
   "Novice": "Tập sự", "Intermediate": "Trung cấp", "Experienced": "Kinh nghiệm", "Master": "Bậc thầy", "Grandmaster": "Đại sư", "Long": "Dài", "QP": "ĐNV",
   "White: not started · Orange: in progress · Green: complete": "Trắng: chưa bắt đầu · Cam: đang làm · Xanh: hoàn thành", "‹ Quest list": "‹ Danh sách nhiệm vụ", "Start:": "Bắt đầu:", "Rewards:": "Phần thưởng:",
   "A Friend's Feast": "Bữa tiệc của Friend", "Grumblin Trouble": "Rắc rối Grumblin", "The Cold Forge": "Lò rèn nguội", "Hollow Whispers": "Lời thì thầm trống rỗng", "The Lost Glimmer": "Tia sáng thất lạc",

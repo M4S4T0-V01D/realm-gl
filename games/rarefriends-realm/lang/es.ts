@@ -53,7 +53,7 @@ export const es: Dictionary = {
   "{skill} XP: {n}": "XP de {skill}: {n}", "{skill} XP: {n} · Next level at: {m} · Remaining: {r}": "XP de {skill}: {n} · Siguiente nivel: {m} · Faltan: {r}", "Total XP: {n} · XP rate ×{r}": "XP total: {n} · Ritmo de XP ×{r}",
   "Can make now": "Se puede hacer ya", "Search recipes": "Buscar recetas", "Search recipes or ingredients": "Buscar recetas o ingredientes", "No recipes match.": "Ninguna receta coincide.",
   // ---------- Quests ----------
-  "Quest points:": "Puntos de misión:", "Quest points": "Puntos de misión", "of": "de", "quests complete": "misiones completadas", "Not started": "Sin empezar", "In progress": "En curso", "Complete": "Completada",
+  "Quest points:": "Puntos de misión:", "Quest points": "Puntos de misión", "Quest point": "Punto de misión", "of": "de", "quests complete": "misiones completadas", "Not started": "Sin empezar", "In progress": "En curso", "Complete": "Completada",
   "Novice": "Novato", "Intermediate": "Intermedio", "Experienced": "Experto", "Master": "Maestro", "Grandmaster": "Gran maestro", "Long": "Larga", "QP": "PM",
   "White: not started · Orange: in progress · Green: complete": "Blanco: sin empezar · Naranja: en curso · Verde: completada", "‹ Quest list": "‹ Lista de misiones", "Start:": "Inicio:", "Rewards:": "Recompensas:",
   "A Friend's Feast": "El festín de un Friend", "Grumblin Trouble": "Problemas con los Grumblins", "The Cold Forge": "La forja fría", "Hollow Whispers": "Susurros huecos", "The Lost Glimmer": "El destello perdido",

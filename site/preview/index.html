@@ -244,13 +244,13 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   </div>
   <div class="wrap trailer" id="trailer">
     <div class="frame">
-      <video id="trailer-video" src="media/update-webgl.mp4" poster="media/update-webgl-poster.jpg" autoplay muted playsinline controls preload="metadata"
-        aria-label="Realm WebGL beta video: ground blending at Fernwick, Friendhollow's roofs zooming out, Raria's palace and keep, Frostpeak in the snow, a lamplit evening in the square, and the graphics settings for nerds"></video>
+      <video id="trailer-video" src="media/update-languages.mp4" poster="media/update-languages-poster.jpg" autoplay muted playsinline controls preload="metadata"
+        aria-label="RareFriends Realm language video: Friendhollow's square talking in Japanese, Spanish, Korean and Russian, the Realm Guide's advice in all twelve languages, the quest journal, Examine in the chat, a skill guide, the update log, and this site switching languages"></video>
       <button class="btn primary sound" id="trailer-sound" type="button">🔊 Watch with sound</button>
       <button class="arrow prev" id="trailer-prev" type="button" aria-label="Previous video">‹</button>
       <button class="arrow next" id="trailer-next" type="button" aria-label="Next video">›</button>
     </div>
-    <p><span class="count" id="trailer-count">1 / 6</span><b id="trailer-title">Realm WebGL: the same Realm on your graphics card</b> <span id="trailer-note">In beta: ground that blends, shingled roofs at every zoom, every tree and Friend lit where it stands, and graphics settings for nerds.</span></p>
+    <p><span class="count" id="trailer-count">1 / 6</span><b id="trailer-title">The Realm speaks your language</b> <span id="trailer-note">New this week: the whole Realm in thirteen languages. Your Friend and the townsfolk talk in yours, and so do every conversation, quest, examine, skill guide, tip and sign, and this site too. Every shot recorded straight from the game.</span></p>
     <div class="reel" id="trailer-reel" aria-label="Up next"></div>
   </div>
   <div class="wrap hero">
@@ -525,6 +525,9 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
   // music player take turns.
   (() => {
     const VIDEOS = [
+      { src: "media/update-languages.mp4", poster: "media/update-languages-poster.jpg", title: "The Realm speaks your language", when: "October 2026",
+        note: "New this week: the whole Realm in thirteen languages. Your Friend and the townsfolk talk in yours, and so do every conversation, quest, examine, skill guide, tip and sign, and this site too. Every shot recorded straight from the game.",
+        label: "RareFriends Realm language video: Friendhollow's square talking in Japanese, Spanish, Korean and Russian, the Realm Guide's advice in all twelve languages, the quest journal, Examine in the chat, a skill guide, the update log, and this site switching languages" },
       { src: "media/update-webgl.mp4", poster: "media/update-webgl-poster.jpg", title: "Realm WebGL: the same Realm on your graphics card", when: "October 2026",
         note: "In beta: ground that blends from grass to sand and path to snow, shingled roofs and bricks at every zoom, every tree and Friend lit where it stands, and graphics settings for nerds.",
         label: "Realm WebGL beta video: ground blending at Fernwick, Friendhollow's roofs zooming out, Raria's palace and keep, Frostpeak in the snow, a lamplit evening in the square, and the graphics settings for nerds" },

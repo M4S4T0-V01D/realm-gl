@@ -54,7 +54,7 @@ export const zhCN: Dictionary = {
   "Total XP: {n} · XP rate ×{r}": "总经验:{n} · 经验倍率 ×{r}",
   "Can make now": "现在可制作", "Search recipes": "搜索配方", "Search recipes or ingredients": "搜索配方或材料", "No recipes match.": "没有匹配的配方。",
   // ---------- Quests ----------
-  "Quest points:": "任务点数:", "Quest points": "任务点数", "of": "/", "quests complete": "个任务已完成", "Not started": "未开始", "In progress": "进行中", "Complete": "已完成",
+  "Quest points:": "任务点数:", "Quest points": "任务点数", "Quest point": "任务点数", "of": "/", "quests complete": "个任务已完成", "Not started": "未开始", "In progress": "进行中", "Complete": "已完成",
   "Novice": "新手", "Intermediate": "中级", "Experienced": "老手", "Master": "大师", "Grandmaster": "宗师", "Long": "长篇", "QP": "任务点",
   "White: not started · Orange: in progress · Green: complete": "白色:未开始 · 橙色:进行中 · 绿色:已完成", "‹ Quest list": "‹ 任务列表", "Start:": "开始:", "Rewards:": "奖励:",
   "A Friend's Feast": "伙伴的盛宴", "Grumblin Trouble": "咕噜林之乱", "The Cold Forge": "冷却的熔炉", "Hollow Whispers": "空洞的低语", "The Lost Glimmer": "失落的微光",

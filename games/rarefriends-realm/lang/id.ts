@@ -53,7 +53,7 @@ export const id: Dictionary = {
   "{skill} XP: {n}": "XP {skill}: {n}", "{skill} XP: {n} · Next level at: {m} · Remaining: {r}": "XP {skill}: {n} · Level berikutnya: {m} · Sisa: {r}", "Total XP: {n} · XP rate ×{r}": "Total XP: {n} · Laju XP ×{r}",
   "Can make now": "Bisa dibuat sekarang", "Search recipes": "Cari resep", "Search recipes or ingredients": "Cari resep atau bahan", "No recipes match.": "Tidak ada resep yang cocok.",
   // ---------- Quests ----------
-  "Quest points:": "Poin misi:", "Quest points": "Poin misi", "of": "/", "quests complete": "misi selesai", "Not started": "Belum dimulai", "In progress": "Berlangsung", "Complete": "Selesai",
+  "Quest points:": "Poin misi:", "Quest points": "Poin misi", "Quest point": "Poin misi", "of": "/", "quests complete": "misi selesai", "Not started": "Belum dimulai", "In progress": "Berlangsung", "Complete": "Selesai",
   "Novice": "Pemula", "Intermediate": "Menengah", "Experienced": "Berpengalaman", "Master": "Ahli", "Grandmaster": "Grandmaster", "Long": "Panjang", "QP": "PM",
   "White: not started · Orange: in progress · Green: complete": "Putih: belum dimulai · Oranye: berlangsung · Hijau: selesai", "‹ Quest list": "‹ Daftar misi", "Start:": "Mulai:", "Rewards:": "Hadiah:",
   "A Friend's Feast": "Pesta Seorang Friend", "Grumblin Trouble": "Masalah Grumblin", "The Cold Forge": "Tempa yang Dingin", "Hollow Whispers": "Bisikan Hampa", "The Lost Glimmer": "Kilau yang Hilang",

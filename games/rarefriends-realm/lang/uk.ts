@@ -53,7 +53,7 @@ export const uk: Dictionary = {
   "{skill} XP: {n}": "Досвід ({skill}): {n}", "{skill} XP: {n} · Next level at: {m} · Remaining: {r}": "Досвід ({skill}): {n} · Наступний рівень: {m} · Залишилось: {r}", "Total XP: {n} · XP rate ×{r}": "Усього досвіду: {n} · Множник досвіду ×{r}",
   "Can make now": "Можна зробити зараз", "Search recipes": "Пошук рецептів", "Search recipes or ingredients": "Пошук рецептів або інгредієнтів", "No recipes match.": "Відповідних рецептів немає.",
   // ---------- Quests ----------
-  "Quest points:": "Очки завдань:", "Quest points": "Очки завдань", "of": "з", "quests complete": "завдань виконано", "Not started": "Не розпочато", "In progress": "Триває", "Complete": "Виконано",
+  "Quest points:": "Очки завдань:", "Quest points": "Очки завдань", "Quest point": "Очко завдання", "of": "з", "quests complete": "завдань виконано", "Not started": "Не розпочато", "In progress": "Триває", "Complete": "Виконано",
   "Novice": "Новачок", "Intermediate": "Середній", "Experienced": "Досвідчений", "Master": "Майстер", "Grandmaster": "Гросмейстер", "Long": "Довге", "QP": "ОЗ",
   "White: not started · Orange: in progress · Green: complete": "Білий: не розпочато · Помаранчевий: триває · Зелений: виконано", "‹ Quest list": "‹ Список завдань", "Start:": "Початок:", "Rewards:": "Нагороди:",
   "A Friend's Feast": "Бенкет для Friend", "Grumblin Trouble": "Клопіт із грамблінами", "The Cold Forge": "Холодна кузня", "Hollow Whispers": "Порожній шепіт", "The Lost Glimmer": "Загублений відблиск",

@@ -141,7 +141,7 @@ export const zhTW: Dictionary = {
   "Search recipes or ingredients": "搜尋配方或材料",
   "No recipes match.": "沒有匹配的配方。",
   "Quest points:": "任務點數:",
-  "Quest points": "任務點數",
+  "Quest points": "任務點數", "Quest point": "任務點數",
   "of": "/",
   "quests complete": "個任務已完成",
   "Not started": "未開始",

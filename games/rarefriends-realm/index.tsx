@@ -367,6 +367,8 @@ export default function RareFriendsRealm({ friendId, client, paused }: GameCompo
         weather: (value: Weather | null) => { fixedWeather = value; },
         fireworks: () => { const state = game.current; if (state) celebrate(state.player.x, state.player.y, ["#e7a9b0", "#ebc26b", "#9fc6f0", "#b4d4a0"]); },
         graphics: (level: "auto" | "high" | "low") => setSettings({ ...live.current.settings, graphics: level === "low" ? "low" : "high" }),
+        /** Show the game in a language (an id from LANGUAGES, or "auto"), as the Settings picker does. */
+        language: (id: string) => setSettings({ ...live.current.settings, language: id }),
         /** How much your Friend talks (recordings keep it quiet). */
         speech: (level: "full" | "reduced" | "rare" | "off") => setSettings({ ...live.current.settings, friendSpeech: level }),
         perf: () => ({ ms: Math.round(perf.ms * 100) / 100, fps: Math.round(1000 / perf.interval), quads: textureStats.last, parts: Object.fromEntries(Object.entries(RENDER_PROFILE).map(([k, v]) => [k, Math.round(v * 10) / 10])), low: isLow(live.current.settings), scale: canvas.current ? Math.round(canvas.current.width / canvas.current.getBoundingClientRect().width * 100) / 100 : 0, cap: adaptive.cap }),

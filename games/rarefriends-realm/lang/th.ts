@@ -53,7 +53,7 @@ export const th: Dictionary = {
   "{skill} XP: {n}": "XP {skill}: {n}", "{skill} XP: {n} · Next level at: {m} · Remaining: {r}": "XP {skill}: {n} · เลเวลถัดไป: {m} · เหลือ: {r}", "Total XP: {n} · XP rate ×{r}": "XP รวม: {n} · อัตรา XP ×{r}",
   "Can make now": "ทำได้ตอนนี้", "Search recipes": "ค้นหาสูตร", "Search recipes or ingredients": "ค้นหาสูตรหรือวัตถุดิบ", "No recipes match.": "ไม่พบสูตรที่ตรงกัน",
   // ---------- Quests ----------
-  "Quest points:": "แต้มเควสต์:", "Quest points": "แต้มเควสต์", "of": "/", "quests complete": "เควสต์ที่สำเร็จ", "Not started": "ยังไม่เริ่ม", "In progress": "กำลังทำ", "Complete": "สำเร็จ",
+  "Quest points:": "แต้มเควสต์:", "Quest points": "แต้มเควสต์", "Quest point": "แต้มเควสต์", "of": "/", "quests complete": "เควสต์ที่สำเร็จ", "Not started": "ยังไม่เริ่ม", "In progress": "กำลังทำ", "Complete": "สำเร็จ",
   "Novice": "มือใหม่", "Intermediate": "ปานกลาง", "Experienced": "ช่ำชอง", "Master": "ปรมาจารย์", "Grandmaster": "ยอดปรมาจารย์", "Long": "ยาว", "QP": "QP",
   "White: not started · Orange: in progress · Green: complete": "ขาว: ยังไม่เริ่ม · ส้ม: กำลังทำ · เขียว: สำเร็จ", "‹ Quest list": "‹ รายชื่อเควสต์", "Start:": "เริ่ม:", "Rewards:": "รางวัล:",
   "A Friend's Feast": "งานเลี้ยงของ Friend", "Grumblin Trouble": "ปัญหากรัมบลิน", "The Cold Forge": "เตาหลอมที่เย็นชืด", "Hollow Whispers": "เสียงกระซิบอันว่างเปล่า", "The Lost Glimmer": "ประกายที่หายไป",

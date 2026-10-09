@@ -135,4 +135,6 @@ export const PANELS: Readonly<Record<string, Row>> = {
   "{n} online": ["{n}人がオンライン", "{n}명 접속 중", "{n} 人在线", "{n} 人在線", "{n} đang trực tuyến", "{n} online", "ออนไลน์ {n} คน", "{n} çevrimiçi", "{n} en línea", "{n} online", "{n} в сети", "{n} у мережі"],
   "○ connecting": ["○ 接続中", "○ 연결 중", "○ 连接中", "○ 連線中", "○ đang kết nối", "○ menghubungkan", "○ กำลังเชื่อมต่อ", "○ bağlanıyor", "○ conectando", "○ conectando", "○ подключение", "○ підключення"],
   "Players in the Realm right now": ["今レルムにいるプレイヤー", "지금 렐름에 있는 플레이어", "当前在王国中的玩家", "目前在王國中的玩家", "Người chơi đang ở Vương quốc", "Pemain di Realm saat ini", "ผู้เล่นในอาณาจักรตอนนี้", "Şu an Diyar'daki oyuncular", "Jugadores en el Reino ahora mismo", "Jogadores no Reino agora", "Игроки в Realm сейчас", "Гравці в Realm зараз"],
+  // The skill guide's heading: your level, then what comes next.
+  "next unlock at {n}: {x}": ["次の解放はレベル{n}: {x}", "다음 해금은 레벨 {n}: {x}", "下一个解锁在 {n} 级：{x}", "下一個解鎖在 {n} 級：{x}", "mở khóa tiếp theo ở cấp {n}: {x}", "buka berikutnya di level {n}: {x}", "ปลดล็อกถัดไปที่เลเวล {n}: {x}", "sonraki açılış seviye {n}: {x}", "próximo desbloqueo en el nivel {n}: {x}", "próximo desbloqueio no nível {n}: {x}", "следующее открытие на уровне {n}: {x}", "наступне відкриття на рівні {n}: {x}"],
 };

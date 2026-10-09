@@ -53,7 +53,7 @@ export const ptBR: Dictionary = {
   "{skill} XP: {n}": "XP de {skill}: {n}", "{skill} XP: {n} · Next level at: {m} · Remaining: {r}": "XP de {skill}: {n} · Próximo nível: {m} · Faltam: {r}", "Total XP: {n} · XP rate ×{r}": "XP total: {n} · Taxa de XP ×{r}",
   "Can make now": "Dá para fazer agora", "Search recipes": "Buscar receitas", "Search recipes or ingredients": "Buscar receitas ou ingredientes", "No recipes match.": "Nenhuma receita encontrada.",
   // ---------- Quests ----------
-  "Quest points:": "Pontos de missão:", "Quest points": "Pontos de missão", "of": "de", "quests complete": "missões concluídas", "Not started": "Não iniciada", "In progress": "Em andamento", "Complete": "Concluída",
+  "Quest points:": "Pontos de missão:", "Quest points": "Pontos de missão", "Quest point": "Ponto de missão", "of": "de", "quests complete": "missões concluídas", "Not started": "Não iniciada", "In progress": "Em andamento", "Complete": "Concluída",
   "Novice": "Novato", "Intermediate": "Intermediário", "Experienced": "Experiente", "Master": "Mestre", "Grandmaster": "Grão-mestre", "Long": "Longa", "QP": "PM",
   "White: not started · Orange: in progress · Green: complete": "Branco: não iniciada · Laranja: em andamento · Verde: concluída", "‹ Quest list": "‹ Lista de missões", "Start:": "Início:", "Rewards:": "Recompensas:",
   "A Friend's Feast": "O Banquete de um Friend", "Grumblin Trouble": "Encrenca com os Grumblins", "The Cold Forge": "A Forja Fria", "Hollow Whispers": "Sussurros Vazios", "The Lost Glimmer": "O Brilho Perdido",

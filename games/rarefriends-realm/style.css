@@ -528,3 +528,15 @@
 /* Languages written without spaces wrap anywhere; Thai and CJK read best a little larger. */
 .realm-game[data-lang="ja"], .realm-game[data-lang="ko"], .realm-game[data-lang^="zh"], .realm-game[data-lang="th"] { line-break: strict; }
 .realm-game[data-lang="ja"] .realm-tabs button, .realm-game[data-lang^="zh"] .realm-tabs button { letter-spacing: 0; }
+/* The Quest journal's two pages, and the Pursuance journal (journal.tsx). */
+.realm-journal-switch { display: flex; gap: 4px; margin-bottom: 6px; }
+.realm-journal-switch button { flex: 1; padding: 4px 6px !important; font-size: 11px; font-weight: 700; background: #ffffff10 !important; color: #e8e5de !important; border: 1px solid #ffffff22 !important; box-shadow: none !important; }
+.realm-journal-switch button[aria-selected="true"] { background: var(--gold) !important; color: var(--ink) !important; }
+.realm-facts { margin: 6px 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; font-size: 11px; }
+.realm-facts dt { font-weight: 700; color: var(--gold); }
+.realm-facts dd { margin: 0; color: #e8e5de; }
+.realm-facts dd.realm-unknown { color: var(--muted); font-style: italic; }
+.realm-facts dd small { display: block; font-style: normal; font-size: 10px; }
+.realm-lore { margin-top: 8px; padding: 6px 8px; border-left: 2px solid var(--gold); font-size: 11px; color: #d8d3c6; font-style: italic; }
+.realm-bestiary .realm-quest-dot.mastery-0 { background: #8a8680; } .realm-bestiary .realm-quest-dot.mastery-1 { background: #c9a84a; }
+.realm-bestiary .realm-quest-dot.mastery-2 { background: #e0882c; } .realm-bestiary .realm-quest-dot.mastery-3 { background: #6fd18a; }

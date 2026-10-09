@@ -24,6 +24,7 @@ import { NPCS, QUESTS, readJobBoard, consecrateDawnstone, onAltarPrayed, examine
 import { onWestTick, westTruce } from "./raria.ts";
 import { codexTick } from "./codex.ts";
 import { SOLDIERLY, SOLDIERS, TWIN_BASE, hostile, sideOf } from "./skirmish.ts";
+import { examineCreature, inspectTrack, knows, learnTrick, masteryBoost, maxHpOf, onAttacked, onKilled, onPoison, onWeakSpot, rollMarked, trackTick } from "./pursuance.ts";
 import {
   BANK_SIZE, BANK_TABS, DAY_MS, SATCHEL, SATCHEL_SIZE, STONE_BOX, STONE_BOX_SIZE, BONE_BAG, BONE_BAG_SIZE, bagAdd, bagBones, bagTakeAll, hasBoneBag, SIGIL_BAG, BELTS, beltAdd, beltContents, beltDef, wornBelt, SIGIL_BAG_SIZE, hasSigilBag, isSigil, sigilBagAdd, sigilBagTotal, sigilStock, useSigils, setPieces, wayfarerPieces, fullSlayerSet, heartguardPieces, mixtureOn, compactBankTabs, hasSatchel, hasStoneBox, stock, useUp, INVENTORY_SIZE, REFERRAL_COINS, REFERRALS_PER_DAY, REFERRAL_TICKS, addXp, attackSpeed, bonuses, canHold, count, dropItem, emit, freeSlots, give, giveOrDrop, has, hasTool, isStaffEquipped,
   level, maxHp, maxPrayer, message, prayerBoost, riding, sound, take, weapon, combatLevel, createGame,
@@ -131,6 +132,7 @@ function targetPoint(game: Game, target: Target): (Point & { size?: number; obje
     case "monster": { const monster = monsterByUid(game, target.uid); return monster ? { x: monster.x, y: monster.y, size: footprint(monster) } : null; }
     case "ground": { const ground = game.ground.find(entry => entry.uid === target.uid); return ground ? { x: ground.x, y: ground.y } : null; }
     case "fire": { const fire = game.fires.find(entry => entry.uid === target.uid); return fire ? { x: fire.x, y: fire.y } : null; }
+    case "track": { const track = game.tracks.find(entry => entry.uid === target.uid); return track ? { x: track.x, y: track.y } : null; }
   }
 }
 function magicRange(target: Target) { return target.kind === "monster" && (target.spell || target.option === "Attack") ? 8 : 0; }
@@ -144,6 +146,8 @@ function inReach(game: Game, target: Target, at: Point, point: Point & { size?: 
   if (target.kind === "ground" && target.spell) return chebyshev(at, point) <= 8;
   if (target.kind === "ground") return at.x === point.x && at.y === point.y || (!canWalk(game, point.x, point.y) && adjacentTo(at.x, at.y, point.x, point.y));
   if (target.kind === "object" && point.object && !point.object.blocks) return chebyshev(at, point) <= 1;
+  // Tracks are read standing over them or beside them.
+  if (target.kind === "track") return chebyshev(at, point) <= 1;
   return adjacentTo(at.x, at.y, point.x, point.y, point.size ?? 1);
 }
 function castingSpell(game: Game, target: Target): Spell | null {
@@ -172,7 +176,7 @@ function routeToTarget(game: Game) {
 
 // ---------- Menus ----------
 /** Something under the pointer. "peer" is another player (its id is their Friend ID). */
-export type Pick = { kind: "monster" | "npc" | "object" | "ground" | "fire" | "peer" | "pground"; id: number };
+export type Pick = { kind: "monster" | "npc" | "object" | "ground" | "fire" | "peer" | "pground" | "track"; id: number };
 export type MenuOption = { verb: string; noun: string; tone: "object" | "npc" | "monster" | "item" | "plain" | "level"; run: (game: Game) => void };
 export type Selection = { kind: "item"; slot: number } | { kind: "spell"; spell: string } | null;
 const OBJECT_EXAMINE: Partial<Record<string, string>> = {
@@ -222,12 +226,12 @@ export function menuFor(game: Game, picks: readonly Pick[], tile: Point | null, 
     if (pick.kind === "monster") {
       const monster = monsterByUid(game, pick.id);
       if (!monster) continue;
-      const noun = `${monster.def.name}  (level-${monster.def.level})`;
+      const noun = `${monster.marked ? `Marked ${monster.def.name}` : monster.def.name}  (level-${monster.def.level})`;
       if (spell) { if (spell.target === "monster") out.push({ verb: useLabel!, noun, tone: "monster", run: g => setTarget(g, { kind: "monster", uid: monster.uid, option: "Cast", spell: spell.id }) }); continue; }
       if (used) { out.push({ verb: useLabel!, noun, tone: "monster", run: g => message(g, "Nothing interesting happens.") }); continue; }
       if (monster.def.shear) out.push({ verb: "Shear", noun: monster.def.name, tone: "monster", run: g => setTarget(g, { kind: "monster", uid: monster.uid, option: "Shear" }) });
       out.push({ verb: "Attack", noun, tone: "monster", run: g => setTarget(g, { kind: "monster", uid: monster.uid, option: "Attack" }) });
-      out.push({ verb: "Examine", noun: monster.def.name, tone: "monster", run: g => message(g, `${monster.def.examine}${monster.def.weakness ? ` Weak to ${monster.def.weakness === "holy" ? "holy light" : monster.def.weakness}.` : ""}`) });
+      out.push({ verb: "Examine", noun: monster.def.name, tone: "monster", run: g => message(g, examineCreature(g, monster)) });
     } else if (pick.kind === "npc") {
       const npc = npcByUid(game, pick.id);
       if (!npc) continue;
@@ -255,6 +259,11 @@ export function menuFor(game: Game, picks: readonly Pick[], tile: Point | null, 
       if (useLabel) continue;
       out.push({ verb: "Take", noun, tone: "item", run: g => setTarget(g, { kind: "ground", uid: ground.uid, option: "Take" }) });
       out.push({ verb: "Examine", noun: item(ground.id).name, tone: "item", run: g => message(g, examineItem(ground.id)) });
+    } else if (pick.kind === "track") {
+      const track = game.tracks.find(entry => entry.uid === pick.id);
+      if (!track || useLabel) continue;
+      out.push({ verb: "Inspect", noun: "Tracks", tone: "object", run: g => setTarget(g, { kind: "track", uid: track.uid, option: "Inspect" }) });
+      out.push({ verb: "Examine", noun: "Tracks", tone: "object", run: g => message(g, "Tracks in the ground. Something passed this way.") });
     } else if (pick.kind === "fire") {
       const fire = game.fires.find(entry => entry.uid === pick.id);
       if (!fire) continue;
@@ -505,6 +514,7 @@ function applyWeaponPoison(game: Game, monster: Monster) {
   const player = game.player, coat = player.weaponPoison;
   if (!coat || coat.weapon !== player.equipment.weapon || coat.charges <= 0) return;
   coat.charges--; if (coat.charges <= 0) { player.weaponPoison = null; message(game, "The poison on your weapon has worn off."); }
+  onPoison(game, monster);
   if (monster.def.poisonImmune && !coat.weaken) return;
   const damage = Math.round(coat.damage * (monster.def.poisonWeak ?? 1));
   monster.poison = { damage, left: 4, timer: 8 };
@@ -900,6 +910,7 @@ function interact(game: Game) {
     player.queuedSpell = target.spell ?? null;
     return;
   }
+  if (target.kind === "track") { inspectTrack(game, target.uid); return; }
   if (target.kind === "ground") {
     const index = game.ground.findIndex(entry => entry.uid === target.uid);
     if (index < 0) return;
@@ -1180,6 +1191,7 @@ export function tick(game: Game) {
   runActivity(game);
   playerCombat(game);
   skirmishScan(game);
+  trackTick(game);
   for (const monster of game.monsters) monsterTick(game, monster);
   for (const twin of game.monsters.filter(monster => monster.sheathe)) sheathe(game, twin);
   for (const npc of game.npcs) if (!npc.drawn) npcTick(game, npc);
@@ -1519,7 +1531,7 @@ function playerCombat(game: Game) {
   const spellId = player.queuedSpell ?? player.autocast, spell = spellId ? SPELLS.find(entry => entry.id === spellId && entry.target === "monster") ?? null : null;
   // A faith weapon hurts the undead more (more accurate, harder hitting).
   const holy = !!weapon(player)?.equip?.holy, range = spell ? 0 : bowRange(game);
-  let boost = slayerBoost(game, monster.def.id) * (holy && monster.def.undead ? 1.2 : 1) * (1 + carvingEffect(game).dealt);
+  let boost = slayerBoost(game, monster.def.id) * masteryBoost(game, monster.def.id) * (holy && monster.def.undead ? 1.2 : 1) * (1 + carvingEffect(game).dealt);
   const within = (x: number, y: number) => spell ? chebyshev({ x, y }, monster) <= 8 && chebyshev({ x, y }, monster) >= 1
     : range ? reachGap({ x, y }, monster.x, monster.y, footprint(monster)) >= 1 && reachGap({ x, y }, monster.x, monster.y, footprint(monster)) <= range
     : adjacentTo(x, y, monster.x, monster.y, footprint(monster));
@@ -1548,7 +1560,7 @@ function playerCombat(game: Game) {
     payFaith(game, spell);
     player.attackTimer = 5;
     // Its weakness: a spell of the element its hide gives way to lands truer and harder; holy light hurts the undead more.
-    if (monster.def.weakness === spell.element) boost *= 1.33;
+    if (monster.def.weakness === spell.element) { boost *= 1.33; onWeakSpot(game, monster); }
     // The Old Friend's light and the Wise Friend's rites both burn the dead (the Dusk's last rite as hard as Banishment).
     if ((spell.element === "holy" || (spell.rarian && spell.kind === "smite")) && monster.def.undead) boost *= spell.kind === "smite" && (spell.id === "banishment" || spell.id === "rite_of_dusk") ? 2 : 1.5;
     const castSkill: Skill = spell.skill ?? "magic";
@@ -1584,6 +1596,8 @@ function playerCombat(game: Game) {
     else { addXp(game, "attack", xp / 3); addXp(game, "strength", xp / 3); addXp(game, "defence", xp / 3); }
     addXp(game, "hitpoints", damage * 1.33);
     if (holy) addXp(game, "prayer", damage * FAITH_PER_HIT * (1 + 0.04 * orderPieces(player.equipment, "sol")));
+    // A faith weapon burning the dead: if holy light is what it fears, now you know.
+    if (holy && monster.def.undead && monster.def.weakness === "holy") onWeakSpot(game, monster);
   }
   emit(game, { type: "swing", weapon: weaponSound(player.equipment.weapon), tick: game.tick });
   sound(game, hit > 0 ? "hit" : "miss");
@@ -1664,8 +1678,12 @@ function killMonster(game: Game, monster: Monster) {
     const n = drop.min + Math.floor(game.rng() * (drop.max - drop.min + 1));
     dropItem(game, drop.item, drop.item === "coins" ? Math.round(n * (1 + silver)) : n, at.x, at.y);
   };
-  for (const drop of monster.def.always ?? []) roll(drop);
+  const dropped: string[] = [];
+  for (const drop of monster.def.always ?? []) { roll(drop); dropped.push(drop.item); }
+  // A marked creature's trophy, under a beam of light like any rare find.
+  if (monster.marked) { dropItem(game, "hunters_trophy", 1, at.x, at.y); for (const entry of game.ground) if (entry.id === "hunters_trophy" && entry.x === at.x && entry.y === at.y) entry.rare = true; sound(game, "rare"); }
   for (const drop of monster.def.drops) if (game.rng() < drop.chance) {
+    dropped.push(drop.item);
     const before = game.ground.length;
     roll(drop);
     // A rare or valuable drop: a beam of light over it, a chime, and a line in the chat.
@@ -1678,6 +1696,7 @@ function killMonster(game: Game, monster: Monster) {
   if (monster.def.breath) rollPet(game, "emberling", monster.def.id === "emberwyrm" ? 400 : 99);
   if (monster.def.worldBoss) rollPet(game, "cinderkin", 99);
   onMonsterKilled(game, monster.def.id, at.x, at.y);
+  onKilled(game, monster, dropped);
   slayerKill(game, monster.def.id);
 }
 /** Cindershell armour: dragonfire burns 15% less a piece, half in the full set. */
@@ -1727,7 +1746,8 @@ function monsterTick(game: Game, monster: Monster) {
     // A fallen soldier is back at its post when its time comes round.
     if (monster.twinOf !== undefined) { if (game.tick >= monster.respawnAt) monster.sheathe = true; return; }
     if (game.tick >= monster.respawnAt) {
-      monster.dead = false; monster.hp = monster.def.hp; monster.curses = {}; monster.bornAt = game.tick; monster.x = monster.spawn.x; monster.y = monster.spawn.y; monster.prev = { ...monster.spawn }; monster.target = false;
+      monster.dead = false; monster.hp = monster.def.hp; monster.curses = {}; monster.bornAt = game.tick; monster.x = monster.spawn.x; monster.y = monster.spawn.y; monster.prev = { ...monster.spawn }; monster.target = false; monster.foe = null;
+      rollMarked(game, monster);
     }
     return;
   }
@@ -1748,7 +1768,7 @@ function monsterTick(game: Game, monster: Monster) {
   else if (wouldAttack) { game.sneakingPast.delete(monster.uid); monster.target = true; creature(game, monster, "aggro"); }
   else if (!monster.target && game.sneakingPast.has(monster.uid)) slippedPast(game, monster);
   // It mends itself while it's hurt (the Archivist Below reads itself whole again).
-  if (monster.def.heals && monster.hp < monster.def.hp / 2 && game.tick % 5 === 0) monster.hp = Math.min(monster.def.hp, monster.hp + monster.def.heals);
+  if (monster.def.heals && monster.hp < maxHpOf(monster) / 2 && game.tick % 5 === 0) { monster.hp = Math.min(maxHpOf(monster), monster.hp + monster.def.heals); if (monster.target) learnTrick(game, monster.def.id, "heals"); }
   if (monster.target) {
     monster.idle = 0;
     const leash = Math.max(Math.abs(monster.x - monster.spawn.x), Math.abs(monster.y - monster.spawn.y));
@@ -1758,9 +1778,10 @@ function monsterTick(game: Game, monster: Monster) {
     if (shooting || adjacentTo(player.x, player.y, monster.x, monster.y, footprint(monster))) {
       if (monster.attackTimer <= 0) {
         // Below a third of its health an enraged thing hits half as hard again, and faster.
-        const enraged = !!monster.def.enrage && monster.hp <= monster.def.hp / 3;
+        const enraged = !!monster.def.enrage && monster.hp <= maxHpOf(monster) / 3;
         monster.attackTimer = Math.max(2, monster.def.speed - (enraged ? 1 : 0));
         const boost = prayerBoost(player), style = STYLE_BONUS[player.style];
+        let breathed = false;
         const attack = (monster.def.attack * cursed(game, monster, "attack") + 9) * (monster.def.attackBonus + 64);
         const defence = (Math.floor(level(game, "defence") * (1 + boost.defence)) + style.defence + 8) * (bonuses(player).defence + 64);
         // (A deadwood dread near you puts creatures off their stroke.)
@@ -1769,6 +1790,7 @@ function monsterTick(game: Game, monster: Monster) {
         if (shooting && !adjacentTo(player.x, player.y, monster.x, monster.y, footprint(monster))) emit(game, { type: "projectile", projectile: { from: { x: monster.x, y: monster.y }, to: { x: player.x, y: player.y }, start: game.tick, end: game.tick + 1, color: "#8a7a5a", style: "arrow" } });
         // Dragonfire: a third of a dragon's attacks are breath, which only a Wyrmward shield turns aside.
         if (monster.def.breath && game.rng() < 0.33) {
+          breathed = true;
           const shielded = player.equipment.shield === "wyrmward_shield";
           hit = Math.floor(game.rng() * ((shielded ? 4 : monster.def.breath) + 1) * fireFactor(player, game));
           emit(game, { type: "projectile", projectile: { from: { x: monster.x, y: monster.y }, to: { x: player.x, y: player.y }, start: game.tick, end: game.tick + 1, color: "#e9733f", style: "fire" } });
@@ -1777,13 +1799,16 @@ function monsterTick(game: Game, monster: Monster) {
         }
         creature(game, monster, "attack");
         damagePlayer(game, hit, monster);
-        if (hit > 0 && monster.def.poison && game.rng() < monster.def.poison.chance) poisonPlayer(game, monster.def.poison.damage);
+        const poisoned = hit > 0 && !!monster.def.poison && game.rng() < monster.def.poison.chance;
+        if (poisoned) poisonPlayer(game, monster.def.poison!.damage);
         // A wraith's touch takes faith (or wind) with the blood.
         if (hit > 0 && monster.def.drain) {
           if (monster.def.drain.faith) player.prayer = Math.max(0, player.prayer - monster.def.drain.faith);
           if (monster.def.drain.energy) player.energy = Math.max(0, player.energy - monster.def.drain.energy);
           if (game.rng() < 0.3) message(game, `The ${monster.def.name.replace(/^The /, "").toLowerCase()}'s touch drains your ${monster.def.drain.faith ? "faith" : "strength to run"}.`, "warn");
         }
+        // What it just did to you, you know now.
+        onAttacked(game, monster, { shooting: shooting && !adjacentTo(player.x, player.y, monster.x, monster.y, footprint(monster)), poisoned, drained: hit > 0 && !!monster.def.drain, breath: breathed, enraged });
       }
       return;
     }
@@ -2520,7 +2545,7 @@ export type SaveData = {
   inventory: (Slot | null)[]; equipment: Record<string, string>; bank: BankSlot[]; style: CombatStyle; autocast: string | null;
   quests: Record<string, number>; questData: Record<string, number>; wardrobe: string[]; worn: string[]; follower: number | null; followerGeneration: number | null;
   kills: number; deaths: number; tutorial: number; guide?: number; created: number; playTicks: number; retaliate: boolean; music: string[];
-  met?: unknown; achievements?: Record<string, number>; pets?: string[]; petOut?: string | null; killLog?: Record<string, number>; stats?: Record<string, number>; referredBy?: number | null; referrals?: number[]; referralTimes?: number[]; boostTicks?: number; coalBag?: number; stoneBox?: number; boneBag?: Record<string, number>;
+  met?: unknown; achievements?: Record<string, number>; pets?: string[]; petOut?: string | null; killLog?: Record<string, number>; lore?: Record<string, unknown>; stats?: Record<string, number>; referredBy?: number | null; referrals?: number[]; referralTimes?: number[]; boostTicks?: number; coalBag?: number; stoneBox?: number; boneBag?: Record<string, number>;
   boosts?: Record<string, number>; poison?: { damage: number; left: number; timer: number } | null; weaponPoison?: { weapon: string; damage: number; charges: number; weaken: boolean } | null;
   antidoteUntil?: number; antifireUntil?: number; stealthUntil?: number; tonicUntil?: number; mixture?: { family: number; until: number } | null;
   firsts?: Record<string, number>; friendKinds?: Record<string, 1>; rumours?: Record<string, 1>; orders?: Record<string, WorkOrder>; card?: Record<string, string>; cards?: Record<string, number>; rarian?: boolean; home?: unknown; restedTicks?: number; sigilBag?: Record<string, number>; ward?: { defence: number; flat: number; reduce: number } | null; wardUntil?: number; renew?: number; renewUntil?: number; belts?: Record<string, Record<string, number>>; followerWorn?: string[];
@@ -2537,7 +2562,7 @@ export function serialize(game: Game): SaveData {
     referredBy: player.referredBy, referrals: [...player.referrals], referralTimes: [...player.referralTimes], boostTicks: player.boostTicks, coalBag: player.coalBag, stoneBox: player.stoneBox, boneBag: { ...player.boneBag }, boosts: { ...player.boosts }, poison: player.poison ? { ...player.poison } : null, weaponPoison: player.weaponPoison ? { ...player.weaponPoison } : null,
     antidoteUntil: Math.max(0, player.antidoteUntil - game.tick), antifireUntil: Math.max(0, player.antifireUntil - game.tick), stealthUntil: Math.max(0, player.stealthUntil - game.tick), tonicUntil: Math.max(0, player.tonicUntil - game.tick), mixture: player.mixture ? { family: player.mixture.family, until: Math.max(0, player.mixture.until - game.tick) } : null,
     firsts: { ...player.firsts } as Record<string, number>, friendKinds: { ...player.friendKinds } as Record<string, 1>, rumours: { ...player.rumours } as Record<string, 1>, orders: { ...player.orders }, card: { ...player.card }, cards: { ...player.cards }, rarian: player.rarian, home: player.home ? { ...player.home, furniture: { ...player.home.furniture } } : null, restedTicks: player.restedTicks, sigilBag: { ...player.sigilBag }, ward: player.ward ? { ...player.ward } : null, wardUntil: Math.max(0, player.wardUntil - game.tick), renew: player.renew, renewUntil: Math.max(0, player.renewUntil - game.tick), belts: Object.fromEntries(Object.entries(player.belts).map(([id, contents]) => [id, { ...contents }])), followerWorn: [...player.followerWorn],
-    name: player.name, fellowship: player.fellowship ? { ...player.fellowship } : null, title: player.title, visited: { ...player.visited } as Record<string, number>, regionTicks: { ...player.regionTicks } as Record<string, number>, talked: { ...player.talked } as Record<string, 1>, emotesUsed: { ...player.emotesUsed } as Record<string, 1>, outfits: { ...player.outfits } as Record<string, 1>, friendTicks: player.friendTicks, mounts: [...player.mounts], mount: player.mount, met: JSON.parse(JSON.stringify(player.met)), achievements: { ...player.achievements }, pets: [...player.pets], petOut: player.petOut, killLog: { ...player.killLog }, stats: { ...player.stats }, daily: JSON.parse(JSON.stringify(player.daily)), seenUpdate: player.seenUpdate,
+    name: player.name, fellowship: player.fellowship ? { ...player.fellowship } : null, title: player.title, visited: { ...player.visited } as Record<string, number>, regionTicks: { ...player.regionTicks } as Record<string, number>, talked: { ...player.talked } as Record<string, 1>, emotesUsed: { ...player.emotesUsed } as Record<string, 1>, outfits: { ...player.outfits } as Record<string, 1>, friendTicks: player.friendTicks, mounts: [...player.mounts], mount: player.mount, met: JSON.parse(JSON.stringify(player.met)), achievements: { ...player.achievements }, pets: [...player.pets], petOut: player.petOut, killLog: { ...player.killLog }, lore: Object.fromEntries(Object.entries(player.lore).map(([id, entry]) => [id, { ...entry, d: [...entry.d] }])), stats: { ...player.stats }, daily: JSON.parse(JSON.stringify(player.daily)), seenUpdate: player.seenUpdate,
   };
 }
 /** Every quest the Realm has (so a save keeps them all: the hand-kept list this used to be lost the dungeon, Ring, Orders and Maidens quests on reload). */
@@ -2663,6 +2688,11 @@ export function restore(game: Game, raw: unknown): boolean {
   player.petOut = typeof save.petOut === "string" && player.pets.includes(save.petOut) && player.follower === null ? save.petOut : null;
   player.stats = Object.fromEntries(Object.entries(save.stats && typeof save.stats === "object" ? save.stats : {}).filter(([key, n]) => /^[a-zA-Z]{1,24}$/.test(key) && typeof n === "number" && Number.isFinite(n)).slice(0, 40).map(([key, n]) => [key, Math.max(0, Math.min(1e9, Math.floor(n as number)))]));
   player.killLog = Object.fromEntries(Object.entries(save.killLog && typeof save.killLog === "object" ? save.killLog : {}).filter(([id, n]) => id in MONSTERS && typeof n === "number" && Number.isFinite(n)).map(([id, n]) => [id, Math.max(0, Math.min(1e7, Math.floor(n as number)))]));
+  // The Pursuance journal: creatures that exist, facts and tricks as bits, drops that are items (forty at most), counts kept sane.
+  player.lore = Object.fromEntries(Object.entries(save.lore && typeof save.lore === "object" ? save.lore : {}).filter(([id, entry]) => id in MONSTERS && entry && typeof entry === "object").slice(0, 600).map(([id, raw]) => {
+    const entry = raw as Record<string, unknown>, n = (value: unknown, max: number) => typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.min(max, Math.floor(value))) : 0;
+    return [id, { k: n(entry.k, 63), a: n(entry.a, 255), d: Array.isArray(entry.d) ? entry.d.filter((drop): drop is string => typeof drop === "string" && isItem(drop)).slice(0, 40) : [], t: n(entry.t, 1e6), m: n(entry.m, 1e6), r: n(entry.r, 3) }];
+  }));
   // Saves from before the update log see it from the start.
   player.seenUpdate = int(save.seenUpdate, 0, 1e6, 0);
   return true;

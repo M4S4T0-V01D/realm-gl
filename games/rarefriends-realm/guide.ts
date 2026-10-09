@@ -158,11 +158,20 @@ export function skillGuide(skill: Skill): GuideEntry[] {
       add(99, "Title: Presence of the Realm", "Presence 99.");
       break;
     case "slayer":
-      for (const task of SLAYER_TASKS) add("slayer" in task ? task.slayer : 1, `Task: ${task.name}`, `From combat level ${task.min}`);
-      for (const monster of Object.values(MONSTERS)) if (monster.slayer) add(monster.slayer, monster.name, "Only a Slayer can wound it");
-      add(20, "Warden's helm", "150 points · +15% accuracy and damage on task", "slayer_helm");
-      add(30, "Warden's bracers", "250 points · +10% Slayer XP on task", "warden_bracers");
-      add(1, "Longer tasks", "100 points · tasks and their points half as big again (switch it off for free)");
+      // Pursuance: knowing the creatures, reading their tracks, the Warden's contracts and what they lead to.
+      add(1, "Your Pursuance journal", "Examine a creature, fight it, read its tracks: every fact learnt is written down, and pays once", "slayer_gem");
+      add(1, "Reading tracks", "Tracks near you lead to creatures up to 15 levels above your Pursuance: read one for its maker, its way, and a trail on your map");
+      add(1, "Judging by eye", "Examine tells you how a creature fights from a quarter of its level, its guard from half, its weakness from four fifths");
+      add(1, "Mastery", "Familiar (10 put down, weakness known), Seasoned (50, and its guard), Expert (150, and everything): +2%, +4%, +6% accuracy and damage against it");
+      add(1, "The Warden's research", "Everything she knows of a creature you've met, for Pursuance points");
+      add(10, "Track contracts", "Read so many sets of a creature's tracks");
+      add(20, "Study contracts", "Learn how a creature fights, how it guards itself and what it's weak to");
+      add(1, "Marked creatures", "One in a great many comes back stronger, with a hunter's trophy: 6 points from the Warden", "hunters_trophy");
+      for (const task of SLAYER_TASKS) add("slayer" in task ? task.slayer : 1, `Contract: ${task.name}`, `From combat level ${task.min}`);
+      for (const monster of Object.values(MONSTERS)) if (monster.slayer) add(monster.slayer, monster.name, "Only a seasoned pursuer can wound it");
+      add(20, "Warden's helm", "150 points · +15% accuracy and damage on contracts", "slayer_helm");
+      add(30, "Warden's bracers", "250 points · +10% Pursuance XP on contracts", "warden_bracers");
+      add(1, "Longer contracts", "100 points · contracts and their points half as big again (switch it off for free)");
       for (const set of SLAYER_SETS) add(set.slayer, `${set.name} armour`, `Dropped by ${MONSTERS[set.monster].name.toLowerCase()}s · ${set.effect}`, `${set.id}_${set.pieces[0].suffix}`);
       break;
   }

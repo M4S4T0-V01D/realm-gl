@@ -9,8 +9,9 @@ import { DIALOGUE } from "./dialogue.ts";
 import { TRACKS } from "./tracks.ts";
 import { PANELS } from "./panels.ts";
 import { UPDATE_LOG } from "./updates.ts";
+import { PURSUANCE } from "./pursuance.ts";
 
 export const TABLE_LANGUAGES = ["ja", "ko", "zh-CN", "zh-TW", "vi", "id", "th", "tr", "es", "pt-BR", "ru", "uk"] as const;
 export type Row = readonly [ja: string, ko: string, zhCN: string, zhTW: string, vi: string, id: string, th: string, tr: string, es: string, ptBR: string, ru: string, uk: string];
 // The soundtrack and the panels' words first, so a title or a name that is also something else keeps that row.
-export const TABLE: Readonly<Record<string, Row>> = { ...TRACKS, ...PANELS, ...NAMES, ...GUIDE, ...TIPS, ...DIALOGUE, ...UPDATE_LOG };
+export const TABLE: Readonly<Record<string, Row>> = { ...TRACKS, ...PANELS, ...PURSUANCE, ...NAMES, ...GUIDE, ...TIPS, ...DIALOGUE, ...UPDATE_LOG };

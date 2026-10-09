@@ -126,7 +126,7 @@ export const WEST_QUESTS: readonly QuestDef[] = [
   },
   {
     id: "cog_reliquary", name: "What the Dusk Lost", points: 3, difficulty: "Long", start: "Talk to Prior Vesperine Caul at the Hall of the Order of Dusk, after The Wise Friend's Law.",
-    requirements: ["The Wise Friend's Law", "Combat 55 recommended"], rewards: ["3 Quest Points", "Dusk lantern (a belt lamp: +4 Faith, +2 Defence)", "5,000 Faith XP", "3,000 Slayer XP"],
+    requirements: ["The Wise Friend's Law", "Combat 55 recommended"], rewards: ["3 Quest Points", "Dusk lantern (a belt lamp: +4 Faith, +2 Defence)", "5,000 Faith XP", "3,000 Pursuance XP"],
     journal: game => {
       const s = stage(game, "cog_reliquary");
       if (s === 0) return ["The Order of Dusk lost a reliquary in Deep Westmarch when the first fighting was. The Prior wants it back unopened, and says it twice."];

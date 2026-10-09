@@ -1,5 +1,6 @@
 /** The Realm's interface: side tabs, chat and dialogue, bank, shops, production, map and more. */
 import React, { useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { PursuanceJournal } from "./journal.tsx";
 import type { GenerationSprites } from "@rarefriends/friendsdk/sprites";
 import { SPELL_TABS, RARIAN_SPELL_TABS, spellInBook, MONSTERS, type Spell, ITEM_LIST, isItem,
   EMOTES, EQUIP_SLOTS, FAMILY_NAMES, FAMILY_PERKS, PRAYERS, RELICS, SHOPS, SKILLS, SKILL_ICONS, SKILL_NAMES, SPELLS, WARDROBE, XP_TABLE, item, levelForXp,
@@ -242,7 +243,20 @@ function questSteps(game: Game, quest: QuestDef) {
   const lines = quest.journal(game).filter(line => /^[✓•]/.test(line));
   return lines.length ? { done: lines.filter(line => line.startsWith("✓")).length, total: lines.length } : null;
 }
-function QuestsTab({ game, openMenu }: PanelProps) {
+/** The Quest journal tab: your quests, or (the other page) your Pursuance journal. */
+function QuestsTab(props: PanelProps) {
+  const [page, setPage] = useState<"quests" | "pursuance">("quests");
+  return (
+    <>
+      <div className="realm-journal-switch" role="tablist" aria-label="Journal">
+        <button type="button" role="tab" aria-selected={page === "quests"} onClick={() => setPage("quests")}>Quests</button>
+        <button type="button" role="tab" aria-selected={page === "pursuance"} onClick={() => setPage("pursuance")}>Pursuance</button>
+      </div>
+      {page === "quests" ? <QuestList {...props} /> : <PursuanceJournal game={props.game} />}
+    </>
+  );
+}
+function QuestList({ game, openMenu }: PanelProps) {
   const [open, setOpen] = useState<string | null>(null), quest = QUESTS.find(entry => entry.id === open);
   if (quest) {
     const state = questState(game, quest.id), steps = state === "started" ? questSteps(game, quest) : null;

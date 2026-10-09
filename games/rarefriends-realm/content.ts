@@ -3,6 +3,7 @@
  */
 import { COURSES, FAMILY_NAMES, FAMILY_PERKS, SLAYER_REWARDS, WAYFARER_MARK, WAYFARER_REWARDS, item , REGIONAL_CLOTHING, SKILL_NAMES } from "./data.ts";
 import { assignTask, buySlayerReward, currentTask, eligibleTasks, slayerPoints, slayerStreak, taskText } from "./slayer.ts";
+import { TROPHY_POINTS, research, researchCost, researchable } from "./pursuance.ts";
 import { buyWayfarerReward } from "./wayfaring.ts";
 import { REPUTATION_PLACES, RENAME_COST, onQuestCompleted, playerName, presenceLevel, reputation, unlockedTitles } from "./presence.ts";
 import { PATRONS, askText, currentOrder, fillOrder, orderText } from "./orders.ts";
@@ -142,7 +143,7 @@ export const NPCS: Record<string, NpcDef> = {
   rowan: { id: "rowan", name: "Rowan the forester", examine: "Sawdust in the beard, a pencil behind the ear.", options: ["Talk-to", "Trade"], shop: "timber", art: art(2, 377) },
   birch: { id: "birch", name: "Old Birch", examine: "Has felled more trees than you've seen.", options: ["Talk-to"], art: art(4, 509) },
   bowyer: { id: "bowyer", name: "Wren the bowyer", examine: "Smells of beeswax and pine shavings.", options: ["Talk-to", "Trade"], shop: "archery", art: art(3, 261) },
-  slayer_master: { id: "slayer_master", name: "Warden Thistle", examine: "The Realm's Slayer Warden. She knows where everything soft is.", options: ["Talk-to", "Assignment", "Rewards", "Trade"], shop: "slayer", art: art(8, 271) },
+  slayer_master: { id: "slayer_master", name: "Warden Thistle", examine: "The Realm's Warden of Pursuance. She knows where everything soft is.", options: ["Talk-to", "Assignment", "Rewards", "Trade"], shop: "slayer", art: art(8, 271) },
   rare_trader: { id: "rare_trader", name: "Rare trader", examine: "Deals in Rare Caskets and the good stuff that comes with them.", options: ["Talk-to", "Rare-market", "Caskets"], art: art(7, 281) },
   innkeeper: { id: "innkeeper", name: "Bram the innkeeper", examine: "Runs the Sleepy Friend. Has never seen it busy before noon.", options: ["Talk-to", "Trade"], shop: "inn", art: art(2, 291) },
   archmage: { id: "archmage", name: "Archmage Solenne", examine: "Head of the Wizards' Tower. Her hat has its own weather.", options: ["Talk-to"], art: art(1, 311) },
@@ -413,7 +414,7 @@ export const QUESTS: readonly QuestDef[] = [
   },
   {
     id: "howling_vault", name: "What the Stones Keep", points: 3, difficulty: "Long", start: "Talk to Huntmaster Fenn in Tallgrass after Tracks in the Tallgrass, with a combat level of 70 or so.",
-    requirements: ["Combat 70 recommended", "Tracks in the Tallgrass"], rewards: ["3 Quest Points", "8,000 Attack XP", "4,000 Slayer XP", "6,000 coins"],
+    requirements: ["Combat 70 recommended", "Tracks in the Tallgrass"], rewards: ["3 Quest Points", "8,000 Attack XP", "4,000 Pursuance XP", "6,000 coins"],
     journal: game => {
       const s = stage(game, "howling_vault");
       if (s === 0) return ["Fenn says the ring of stones in The Wilds has a hole in the middle now, and the game won't go within a mile of it. He's stopped pretending it was always there."];
@@ -447,7 +448,7 @@ export const QUESTS: readonly QuestDef[] = [
   },
   {
     id: "maidens_truce", name: "The Maidens' Truce", points: 2, difficulty: "Intermediate", start: "Talk to Matriarch Ysolde Thornveil at the Deadwood Maidens' camp, in the east of the Deadwood.",
-    requirements: ["Combat 50 recommended"], rewards: ["2 Quest Points", "Maiden's veil", "4,000 Faith XP", "2,000 Slayer XP", "The Maidens' market opens to you, and their spears stay down"],
+    requirements: ["Combat 50 recommended"], rewards: ["2 Quest Points", "Maiden's veil", "4,000 Faith XP", "2,000 Pursuance XP", "The Maidens' market opens to you, and their spears stay down"],
     journal: game => {
       const s = stage(game, "maidens_truce"), p = game.player;
       if (s === 0) return ["The Deadwood Maidens hold the east of the wood against the dead and against everyone else. Their matriarch will talk, if nobody else will."];
@@ -739,13 +740,16 @@ function talkInner(game: Game, npcId: string, everyday = false): Dialogue {
   switch (npcId) {
     case "slayer_master:assignment": case "slayer_master": {
       const task = currentTask(game);
-      if (task) return chat(name, npcSays(name, `${taskText(game)} Come back when they're done.`, `Points: ${slayerPoints(game)}. Tasks in a row: ${slayerStreak(game)}. Every tenth task pays five times over.`), [
-        { label: "Call it done (two caskets of RF).", then: () => { game.ui.rfAction = { kind: "slayer-complete", caskets: 2, text: `The Warden marks your task done for two Rare Caskets' worth of simulated RF: the streak and the points are yours as if you'd finished it (${taskText(game)}).` }; return null; } },
-        { label: "Give me a different one (one casket of RF).", then: () => { game.ui.rfAction = { kind: "slayer-reroll", caskets: 1, text: "A fresh task for one Rare Casket's worth of simulated RF; your streak stands." }; return null; } },
+      if (task) return chat(name, npcSays(name, `${taskText(game)} Come back when they're done.`, `Points: ${slayerPoints(game)}. Contracts in a row: ${slayerStreak(game)}. Every tenth contract pays five times over.`), [
+        { label: "Call it done (two caskets of RF).", then: () => { game.ui.rfAction = { kind: "slayer-complete", caskets: 2, text: `The Warden marks your contract done for two Rare Caskets' worth of simulated RF: the streak and the points are yours as if you'd finished it (${taskText(game)}).` }; return null; } },
+        { label: "Give me a different one (one casket of RF).", then: () => { game.ui.rfAction = { kind: "slayer-reroll", caskets: 1, text: "A fresh contract for one Rare Casket's worth of simulated RF; your streak stands." }; return null; } },
         { label: "I'll get on with it.", then: () => null },
       ]);
-      if (npcId === "slayer_master") return chat(name, npcSays(name, "Slayer is simple. I tell you what to kill, you kill that many, I pay you in points. Some things only a Slayer knows how to hurt."), [
-        { label: "Give me a task.", then: () => talk(game, "slayer_master:assignment") },
+      if (npcId === "slayer_master") return chat(name, npcSays(name, "Pursuance is knowing what you hunt. How a thing fights, what it fears, where it beds down, which way it went. Know that, and you'll hunt it better than anyone with a bigger sword.",
+        "I give contracts and pay in points. And I'll tell you what I know about anything you've met, for a price."), [
+        { label: "Give me a contract.", then: () => talk(game, "slayer_master:assignment") },
+        { label: "Tell me about a creature.", then: () => talk(game, "slayer_master:research") },
+        { label: "I've brought trophies.", then: () => talk(game, "slayer_master:trophies") },
         { label: "What can points buy?", then: () => talk(game, "slayer_master:rewards") },
         { label: "Maybe later.", then: () => null },
       ]);
@@ -753,9 +757,25 @@ function talkInner(game: Game, npcId: string, everyday = false): Dialogue {
       assignTask(game);
       return chat(name, npcSays(name, `${taskText(game)} Take a Warden's gem from my shop if you want to check on it.`));
     }
+    case "slayer_master:research": {
+      // Research: she tells you all she knows of a creature you've met, for points.
+      const list = researchable(game).slice(0, 6);
+      if (!list.length) return chat(name, npcSays(name, "You know everything I'd tell you about what you've met. Go and meet something worse."));
+      return chat(name, npcSays(name, `You have ${slayerPoints(game)} Pursuance points. Which one?`), [
+        ...list.map(def => ({ label: `${def.name} (${researchCost(def)} points)`, then: () => research(game, def.id) ? chat(name, npcSays(name, `The ${def.name}. Here's what I know. It's in your journal now.`)) : null })),
+        { label: "Never mind.", then: () => null },
+      ]);
+    }
+    case "slayer_master:trophies": {
+      // Trophies of marked creatures, for points.
+      const have = count(game.player, "hunters_trophy");
+      if (!have) return chat(name, npcSays(name, "Trophies come from marked creatures: one in a great many comes back stronger, and wearing it. Bring me what you take from them."));
+      take(game.player, "hunters_trophy", have); game.player.questData.slayer_points = slayerPoints(game) + have * TROPHY_POINTS; sound(game, "coins");
+      return chat(name, npcSays(name, `${have} trophies. That's ${have * TROPHY_POINTS} points, and a story for every one.`));
+    }
     case "slayer_master:rewards": {
       const points = slayerPoints(game);
-      return chat(name, npcSays(name, `You have ${points} Slayer points.`), [
+      return chat(name, npcSays(name, `You have ${points} Pursuance points.`), [
         ...SLAYER_REWARDS.map(reward => ({ label: `${reward.name} (${reward.cost} points)`, then: () => { buySlayerReward(game, reward.id); return null; } })),
         { label: "Nothing for now.", then: () => null },
       ]);

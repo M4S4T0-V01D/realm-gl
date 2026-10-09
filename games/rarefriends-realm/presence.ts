@@ -109,7 +109,7 @@ export const TITLES: readonly TitleDef[] = [
   { id: "tithed", name: "Sea-tithed", quest: "saltmarrow_tithe", text: "Pay the Salt Tithe." },
   { id: "brewer", name: "Master Brewer", skill: "apothecary", level: 99, text: "Apothecary 99." },
   { id: "wayfarer", name: "Wayfarer", skill: "agility", level: 99, text: "Wayfaring 99." },
-  { id: "slayer", name: "Warden's Own", skill: "slayer", level: 99, text: "Slayer 99." },
+  { id: "slayer", name: "Warden's Own", skill: "slayer", level: 99, text: "Pursuance 99." },
 ];
 export function unlockedTitles(game: Game): TitleDef[] {
   const player = game.player;

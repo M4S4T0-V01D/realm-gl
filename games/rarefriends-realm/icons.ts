@@ -781,7 +781,8 @@ const SKILL_PAINTERS: Record<Skill, Painter> = {
   apothecary: p => { p.rect(7, 2, 3, 3, PAPER); p.disc(8.5, 10, 5, 4.5, "#8fbf9a"); p.rect(6, 5, 5, 3, PAPER); p.set(10, 8, PAPER); p.set(7, 11, "#d8c9a8"); p.line(8, 2, 8, 5, INK); },
   // Presence: an adventurer seen from behind, hat on, cape out, a walking stick, the road ahead.
   presence: p => { p.rect(3, 13, 10, 2, "#8a6446"); p.rect(6, 6, 4, 6, "#4a3a60"); p.rect(5, 7, 1, 5, "#b0443c"); p.rect(10, 7, 1, 5, "#b0443c"); p.disc(8, 4, 2.2, 2.2, "#e8c9a0"); p.rect(4, 2, 8, 1, "#5f5a52"); p.rect(6, 1, 4, 2, "#5f5a52"); p.line(12, 5, 12, 13, "#9c8672", 1); p.rect(6, 12, 1, 2, "#3b3a38"); p.rect(9, 12, 1, 2, "#3b3a38"); },
-  slayer: p => { p.disc(8.5, 7, 6, 5.5, "#e8e4dc"); p.rect(5, 11, 7, 4, "#e8e4dc"); p.rect(5, 5, 3, 3, INK); p.rect(10, 5, 3, 3, INK); p.rect(8, 9, 1, 2, INK); p.line(6, 14, 11, 14, INK); p.line(1, 16, 16, 1, "#cf6e6e", 1); },
+  // Pursuance: a paw print, and the lens you read it with.
+  slayer: p => { p.disc(6.5, 10, 3, 2.5, "#7a5a3c"); for (const [x, y] of [[2.5, 6.5], [5, 4], [8, 4], [10.5, 6.5]]) p.disc(x, y, 1.3, 1.3, "#7a5a3c"); p.disc(11.5, 11.5, 3.2, 3.2, "#9aa6ad"); p.disc(11.5, 11.5, 2, 2, "#cfe8f2"); p.line(13.5, 13.5, 15.5, 15.5, "#5a3e28", 2); },
 };
 /** Skill icons: 24 pixels, shaded like the items, a distinct picture for each skill (the 16-pixel ones above stay for the orbs). */
 const SKILL24: Record<Skill, Painter> = {
@@ -893,11 +894,13 @@ const SKILL24: Record<Skill, Painter> = {
     part(p, box(13, 10, 4, 6), "#9c8672", "wood"); line(p, [[19, 7], [19, 20]], "#c49a74", 2); part(p, box(9, 19, 2, 3), "#3b3a38", "cloth"); part(p, box(13, 19, 2, 3), "#3b3a38", "cloth");
   },
   slayer: p => {
-    part(p, disc(12, 10, 8, 7.5), "#e8e4dc", "stone"); part(p, box(7, 15, 10, 5), "#e8e4dc", "stone");
-    part(p, all(disc(8.5, 10, 2.2), disc(15.5, 10, 2.2)), "#2e2c2a", "flat");
-    for (const x of [9, 12, 15]) line(p, [[x, 16], [x, 19]], "#8f8a84");
-    line(p, [[2, 22], [22, 2]], "#c24a4a", 2);
+    // Pursuance: a paw print in the dirt, and a lens over it.
+    part(p, disc(8.5, 14, 4.6, 4), "#7a5a3c", "cloth");
+    for (const [x, y] of [[3, 8], [6.5, 5], [10.5, 5], [14, 8]] as const) part(p, disc(x, y, 1.9), "#7a5a3c", "cloth");
+    part(p, disc(16, 15.5, 5.4), STEEL_C, "metal"); part(p, disc(16, 15.5, 3.8), "#bfe3f0", "glow");
+    part(p, stroke([[19.6, 19.2], [22.4, 22]], 2.8), DARK_WOOD, "wood");
   },
+
 };
 /**
  * A skill's picture shrunk to `size` pixels for a mastery cape's roundel: each pixel takes the commonest colour of the

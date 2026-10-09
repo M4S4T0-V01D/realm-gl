@@ -4,6 +4,13 @@
  */
 export type Update = { id: number; date: string; title: string; items: readonly string[] };
 export const UPDATES: readonly Update[] = [
+  { id: 95, date: "2026-10-09", title: "Pursuance, the Realm's wars, and a logo", items: [
+    "Slayer is now Pursuance: knowing the Realm's creatures as well as putting them down. Examine a creature, fight it, read its tracks, and what you learn goes in your Pursuance journal (on the Quest journal tab), a fact at a time, each paying once. Your levels, contracts and points carry over.",
+    "Judge a creature by eye as your Pursuance grows, find its weakness by spell, faith or poison, learn its tricks when it uses them, and master it: Familiar, Seasoned and Expert make you better against it. Only a weakness you know shows by its health.",
+    "Tracks lie near you and lead to what made them; Warden Thistle gives contracts to put creatures down, read their tracks or study them, tells you what she knows for points, and pays for trophies from rare marked creatures.",
+    "Every soldier can be fought, and every soldier fights: Hollowmere's soldiers and guards, the Orders' knights, the Regiment, the Federation, BarkReach's rangers and the Maidens draw on the wild and the dead, and on each other where their sides are at odds.",
+    "The Realm has a logo: Friendhollow Castle on a moonlit shield, its keep a Friend's face.",
+  ] },
   { id: 94, date: "2026-10-09", title: "A video in every language, and the last few words", items: [
     "A new video on the preview site shows the Realm in thirteen languages: your Friend and the townsfolk talking, the Realm Guide, the quest journal, Examine, a skill guide, this log and the website itself.",
     "The last English words it caught are translated: a quest's single quest point in the journal, what a skill guide unlocks next, and the Burned in an earlier entry of this log.",

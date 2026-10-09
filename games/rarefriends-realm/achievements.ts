@@ -36,7 +36,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   { id: "brewer", group: "Skills", icon: "⚗", name: "Brewer", text: "Brew ten potions.", check: g => stat(g, "brews") >= 10 },
   { id: "friends_own", group: "Friendship", icon: "⚗", name: "Of my own nature", text: "Drink a mixture made for your Friend's family.", check: g => stat(g, "mixtures") >= 1 },
   { id: "heartguard", group: "Collecting", icon: "♥", name: "Heart of the Realm", text: "Own all nine pieces of the Heartguard.", check: g => HEARTGUARD.every(piece => owns(g, id => id === piece.id)) },
-  { id: "slayer_set", group: "Collecting", icon: "☠", name: "The Warden's wardrobe", text: "Own a full set of armour dropped by a Slayer creature.", check: g => SLAYER_SETS.some(set => set.pieces.every(piece => owns(g, id => id === `${set.id}_${piece.suffix}`))) },
+  { id: "slayer_set", group: "Collecting", icon: "☠", name: "The Warden's wardrobe", text: "Own a full set of armour dropped by one of the Warden's creatures.", check: g => SLAYER_SETS.some(set => set.pieces.every(piece => owns(g, id => id === `${set.id}_${piece.suffix}`))) },
   { id: "quester", group: "Quests", icon: "✎", name: "Quest starter", text: "Complete a quest.", check: g => questPoints(g) >= 1 },
   { id: "hero", group: "Quests", icon: "✎", name: "Hero of the Realm", text: "Complete every quest.", check: g => questPoints(g) >= MAX_QUEST_POINTS },
   { id: "saddle_up", group: "Collecting", icon: "♞", name: "Saddle up", text: "Buy a mount at the Friendhollow stables.", check: g => g.player.mounts.length >= 1 },

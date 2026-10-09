@@ -1362,7 +1362,7 @@ test("Hazel's Quiver: the Grumblin chief has it, Hazel mends it, and it calls sh
   assert(spent < 12, `most bolts fly home (${spent} lost)`);
 });
 
-test("Slayer: a task from the Warden, XP per kill, points when it's done, and creatures only a Slayer can wound", () => {
+test("Pursuance: a contract from the Warden, XP per kill, points when it's done, and creatures only a seasoned pursuer can wound", () => {
   const g = newGame(), p = g.player;
   const warden = g.npcs.find(npc => npc.id === "slayer_master");
   assert(warden, "the Warden is in Friendhollow");
@@ -1373,7 +1373,7 @@ test("Slayer: a task from the Warden, XP per kill, points when it's done, and cr
   const task = currentTask(g);
   assert(task, "a task is given");
   // Take the rats task and finish it with a big hitter.
-  p.questData.slayer_task = 1; p.questData.slayer_left = 2;
+  p.questData.slayer_task = 1; p.questData.slayer_left = 2; p.questData.slayer_kind = 0;
   for (const skill of ["attack", "strength", "defence", "hitpoints"]) p.xp[skill] = 1_000_000;
   p.hp = 99;
   for (let kill = 0; kill < 2; kill++) {
@@ -1384,15 +1384,15 @@ test("Slayer: a task from the Warden, XP per kill, points when it's done, and cr
     setTarget(g, { kind: "monster", uid: rat.uid, option: "Attack" });
     until(g, () => rat.dead, 200);
   }
-  assert(p.xp.slayer > 0, "Slayer XP on task");
+  assert(p.xp.slayer > 0, "Pursuance XP on the contract");
   assert.equal(currentTask(g), null); assert.equal(slayerPoints(g), 10, "10 points for a finished task");
   // A mire crawler can't be hurt below Slayer 10.
   const crawler = g.monsters.find(monster => monster.def.id === "mire_crawler");
   standNear(g, crawler.x, crawler.y, 1);
   setTarget(g, { kind: "monster", uid: crawler.uid, option: "Attack" });
   run(g, 8);
-  assert.equal(crawler.hp, crawler.def.hp, "no damage without the Slayer level");
-  assert(g.messages.some(entry => entry.text.includes("Slayer level of 10")));
+  assert.equal(crawler.hp, crawler.def.hp, "no damage without the Pursuance level");
+  assert(g.messages.some(entry => entry.text.includes("Pursuance level of 10")));
 });
 
 test("Mastery capes: 99 in a skill and 99,000 coins, trimmed once you've mastered two", () => {

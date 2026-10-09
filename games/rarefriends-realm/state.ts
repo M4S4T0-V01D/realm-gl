@@ -8,6 +8,7 @@ import {
  isItem } from "./data.ts";
 import { createWorld, type World } from "./world.ts";
 import type { Daily } from "./daily.ts";
+import type { Lore, Track } from "./pursuance.ts";
 import { LATEST_UPDATE } from "./updates.ts";
 
 export const TICK_MS = 600;
@@ -33,7 +34,8 @@ export type Target =
   | { kind: "npc"; uid: number; option: string; use?: number }
   | { kind: "monster"; uid: number; option: string; spell?: string }
   | { kind: "ground"; uid: number; option: string; spell?: string }
-  | { kind: "fire"; uid: number; option: string; use?: number };
+  | { kind: "fire"; uid: number; option: string; use?: number }
+  | { kind: "track"; uid: number; option: string };
 export type Activity =
   | { kind: "woodcut"; objectId: number; timer: number }
   | { kind: "mine"; objectId: number; timer: number }
@@ -109,6 +111,10 @@ export type Player = {
   pets: string[]; petOut: string | null;
   /** Kills by monster, for achievements. */
   killLog: Record<string, number>;
+  /** Your Pursuance journal: what you know of each creature (pursuance.ts). */
+  lore: Record<string, Lore>;
+  /** Tracks you've read: their maker, shown on your map until then. */
+  trail: { id: string; until: number } | null;
   /** Counts for achievements and bragging: duels won and lost, trades made, daily chests opened. */
   stats: Record<string, number>;
   /** The daily streak and challenges, and the newest update you've seen in the log. */
@@ -151,6 +157,8 @@ export type Monster = {
   twinOf?: number; idle?: number;
   /** Done fighting: put back as the soldier after this tick. */
   sheathe?: boolean;
+  /** A marked creature (pursuance.ts): half as hardy again, with a trophy. */
+  marked?: boolean;
   /** Summoned for a match in the Rare Friends Ring: it hunts you from the start and never comes back. */
   arena?: boolean;
 };
@@ -197,6 +205,8 @@ export type Game = {
   dialogue: Dialogue | null; ui: { shop: string | null; bank: boolean; production: ProductionMenu | null; lamp: number | null; naming: "first" | "rename" | null; fellowship?: boolean; home?: boolean; join?: Fellowship | null; /** A purchase with simulated RF waiting for the player's word: what it does and how many caskets it costs. */ rfAction?: { kind: "slayer-complete" | "slayer-reroll"; caskets: number; text: string } | null };
   held: { dx: number; dy: number } | null; autoRetaliate: boolean; playTicks: number;
   overheads: Map<number, { text: string; until: number }>;
+  /** Creatures' tracks lying round you (pursuance.ts), and the set you read last. */
+  tracks: Track[]; trackRead?: { id: string; tick: number };
   /** Your owned-Friend follower, walking the tiles you leave behind. */
   pet: Pet | null; trail: Point[];
   /** Stealth: aggressive monsters you're slipping past unseen (uid → tick they came in range), and when each last paid XP. */
@@ -253,7 +263,7 @@ export function createPlayer(world: World, familyId: number, friendId: number): 
     style: "accurate", autocast: null, prayers: [], target: null, activity: null, combat: null,
     attackTimer: 0, eatTimer: 0, stunned: 0, regenTimer: 0, quests: {}, questData: {},
     wardrobe: [], worn: [], follower: null, courseStep: -1, kills: 0, deaths: 0, overhead: null, music: ["theme"],
-    familyId: Math.max(0, Math.min(FAMILY_NAMES.length - 1, familyId)), friendId, relics: [0, 0, 0, 0], followerGeneration: null, tutorial: 0, guide: 0, referredBy: null, referrals: [], boostTicks: 0, coalBag: 0, stoneBox: 0, boneBag: {}, sigilBag: {}, belts: {}, followerWorn: [], orders: {}, card: { bg: "paper", frame: "rose", skills: "boxes", font: "mono", ink: "ink", layout: "classic" }, cards: {}, rarian: false, home: null, restedTicks: 0, ward: null, wardUntil: 0, renew: 0, renewUntil: 0, boosts: {}, boostTimer: 0, poison: null, weaponPoison: null, antidoteUntil: 0, antifireUntil: 0, stealthUntil: 0, tonicUntil: 0, mixture: null, name: null, fellowship: null, title: null, visited: {}, regionTicks: {}, talked: {}, emotesUsed: {}, outfits: {}, friendTicks: 0, firsts: {}, friendKinds: {}, rumours: {}, friendLast: -1e9, friendEventAt: {}, friendRegion: null, friendNight: false, friendRain: false, friendSeen: null, combatSaid: null, friendVillage: null, referralTimes: [], mounts: [], mount: null, met: {}, achievements: {}, pets: [], petOut: null, killLog: {}, stats: {}, daily: { day: -1, streak: 0, best: 0, challengeDay: -1, challenges: [], base: [], claimed: [], chest: false, rerolls: 0 }, seenUpdate: LATEST_UPDATE,
+    familyId: Math.max(0, Math.min(FAMILY_NAMES.length - 1, familyId)), friendId, relics: [0, 0, 0, 0], followerGeneration: null, tutorial: 0, guide: 0, referredBy: null, referrals: [], boostTicks: 0, coalBag: 0, stoneBox: 0, boneBag: {}, sigilBag: {}, belts: {}, followerWorn: [], orders: {}, card: { bg: "paper", frame: "rose", skills: "boxes", font: "mono", ink: "ink", layout: "classic" }, cards: {}, rarian: false, home: null, restedTicks: 0, ward: null, wardUntil: 0, renew: 0, renewUntil: 0, boosts: {}, boostTimer: 0, poison: null, weaponPoison: null, antidoteUntil: 0, antifireUntil: 0, stealthUntil: 0, tonicUntil: 0, mixture: null, name: null, fellowship: null, title: null, visited: {}, regionTicks: {}, talked: {}, emotesUsed: {}, outfits: {}, friendTicks: 0, firsts: {}, friendKinds: {}, rumours: {}, friendLast: -1e9, friendEventAt: {}, friendRegion: null, friendNight: false, friendRain: false, friendSeen: null, combatSaid: null, friendVillage: null, referralTimes: [], mounts: [], mount: null, met: {}, achievements: {}, pets: [], petOut: null, killLog: {}, lore: {}, trail: null, stats: {}, daily: { day: -1, streak: 0, best: 0, challengeDay: -1, challenges: [], base: [], claimed: [], chest: false, rerolls: 0 }, seenUpdate: LATEST_UPDATE,
     lastHitBy: null, created: Date.now(), queuedSpell: null, castTimer: 0,
   };
 }
@@ -263,7 +273,7 @@ export function createGame(options: { familyId: number; friendId: number; rng?: 
   const game: Game = {
     world, tick: 0, player: createPlayer(world, options.familyId, options.friendId), monsters: [], npcs: [], ground: [], fires: [], carvings: [], shopStock: {},
     depleted: new Map(), herbPicks: new Map(), ambient: { night: false, rain: false }, friendSpeech: "full", sneakingPast: new Map(), sneakPaid: new Map(), messages: [], events: [], rng, nextUid: 1, dialogue: null, ui: { shop: null, bank: false, production: null, lamp: null, naming: null },
-    held: null, autoRetaliate: true, playTicks: 0, overheads: new Map(), pet: null, trail: [], arena: null,
+    held: null, autoRetaliate: true, playTicks: 0, overheads: new Map(), tracks: [], pet: null, trail: [], arena: null,
   };
   for (const spawn of world.spawns) {
     const uid = game.nextUid++, at = { x: spawn.x, y: spawn.y };

@@ -11,6 +11,7 @@ const isPet = (id: string) => !!petDef(id);
 import { NPCS } from "./content.ts";
 import { TICK_MS, attackSpeed, riding, type Facing, type Game, type Monster, type Npc, type Projectile } from "./state.ts";
 import { npcOverhead, veiled, type Pick } from "./engine.ts";
+import { knows, maxHpOf as creatureMaxHp } from "./pursuance.ts";
 import { gloomAt, inDeadwood, DUNGEON_Y, FLOOR_Y, OVERWORLD_H, REGIONS, STOREY, T, W, H, complexAt, cornerHeight, floorAt, groundHeight, inBounds, isUnderground, objectAtTile, onLevel, realPoint, type Building, type DecorKind, type Floor, type World, type WorldObject } from "./world.ts";
 import { itemArt } from "./icons.ts";
 import type { PeerView } from "./social.ts";
@@ -2500,6 +2501,20 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
       });
     } });
   }
+  // Creatures' tracks (Pursuance): three paw prints in a line the way it went, fading as they age; click to read them.
+  for (const track of game.tracks) {
+    if (!shown(track.x, track.y) || track.until <= game.tick) continue;
+    drawables.push({ depth: depth(track.x, track.y) - 0.32, draw: () => {
+      const fade = Math.max(0.25, Math.min(1, (track.until - game.tick) / 120)), a = toScreen(camera, track.x, track.y), b = toScreen(camera, track.x + track.heading.x, track.y + track.heading.y);
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1, ux = (b.x - a.x) / len, uy = (b.y - a.y) / len, color = `rgba(46,32,20,${(0.85 * fade).toFixed(3)})`, rim = `rgba(255,244,214,${(0.5 * fade).toFixed(3)})`;
+      for (let i = -1; i <= 1; i++) {
+        const side = i % 2 === 0 ? 1 : -1, px = a.x + ux * i * 11 * z - uy * side * 3 * z, py = a.y + uy * i * 11 * z + ux * side * 3 * z;
+        ellipse(ctx, px, py, 4.2 * z, 3 * z, rim, null); ellipse(ctx, px, py, 3.2 * z, 2.2 * z, color, null);
+        for (const toe of [-1, 0, 1]) { const tx = px + ux * 3.6 * z - uy * toe * 2.1 * z, ty = py + uy * 3.6 * z + ux * toe * 2.1 * z; ellipse(ctx, tx, ty, 1.6 * z, 1.3 * z, rim, null); ellipse(ctx, tx, ty, 1 * z, 0.8 * z, color, null); }
+      }
+      hits.push({ x: a.x - 16 * z, y: a.y - 10 * z, w: 32 * z, h: 20 * z, pick: { kind: "track", id: track.uid } });
+    } });
+  }
   // Other players' drops, drawn like your own; "pground" picks index into scene.peerDrops.
   (scene.peerDrops ?? []).forEach((drop, index) => {
     if (!shown(drop.x, drop.y) || !isItem(drop.id)) return;
@@ -3620,10 +3635,14 @@ function drawMonster(ctx: CanvasRenderingContext2D, scene: Scene, monster: Monst
   const fighting = monster.target || game.player.combat === monster.uid || scene.hits.some(entry => entry.on === "monster" && entry.uid === monster.uid && now - entry.at < 4000)
     || (scene.peers ?? []).some(peer => peer.p.fight?.u === monster.uid);
   if (fighting) {
-    hpBar(ctx, s.x, rect.y - 8 * z, monster.hp / monster.def.hp, z, 24 + 10 * size, `${monster.def.level}`);
+    hpBar(ctx, s.x, rect.y - 8 * z, Math.min(1, monster.hp / creatureMaxHp(monster)), z, 24 + 10 * size, `${monster.def.level}`);
     // Its weakness: a little coloured orb beside the bar (fire, water, wind, earth or holy light).
-    if (monster.def.weakness) { const w = (24 + 10 * size) * z, ex = s.x + w / 2 + 6 * z, ey = rect.y - 8 * z + 2.25 * Math.max(0.85, z); ui(ctx, ctx => { ctx.fillStyle = WEAKNESS_COLORS[monster.def.weakness!] ?? "#fff"; ctx.strokeStyle = INK; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(ex, ey, 4 * Math.max(0.85, z), 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = INK; ctx.font = `bold ${Math.round(6 * Math.max(0.85, z))}px ui-monospace, monospace`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(WEAKNESS_GLYPH[monster.def.weakness!] ?? "?", ex, ey + 0.5); }); }
+    if (monster.def.weakness && knows(game, monster.def.id, "weakness")) { const w = (24 + 10 * size) * z, ex = s.x + w / 2 + 6 * z, ey = rect.y - 8 * z + 2.25 * Math.max(0.85, z); ui(ctx, ctx => { ctx.fillStyle = WEAKNESS_COLORS[monster.def.weakness!] ?? "#fff"; ctx.strokeStyle = INK; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(ex, ey, 4 * Math.max(0.85, z), 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = INK; ctx.font = `bold ${Math.round(6 * Math.max(0.85, z))}px ui-monospace, monospace`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(WEAKNESS_GLYPH[monster.def.weakness!] ?? "?", ex, ey + 0.5); }); }
   }
+  // A marked creature (Pursuance): a gold diamond over it, turning slowly.
+  if (monster.marked) { const bob = scene.reducedMotion ? 0 : Math.sin(now / 280) * 2 * z, y = rect.y - (fighting ? 24 : 14) * z + bob, r = 7.5 * z, wobble = scene.reducedMotion ? 1 : 0.6 + Math.abs(Math.cos(now / 600)) * 0.4;
+    ui(ctx, ctx => { const halo = ctx.createRadialGradient(s.x, y, 0, s.x, y, r * 2.6); halo.addColorStop(0, "rgba(255,220,110,0.55)"); halo.addColorStop(1, "rgba(255,220,110,0)"); ctx.fillStyle = halo; ctx.fillRect(s.x - r * 2.6, y - r * 2.6, r * 5.2, r * 5.2);
+      poly(ctx, [[s.x, y - r], [s.x + r * wobble, y], [s.x, y + r], [s.x - r * wobble, y]], "#f2d56b"); ctx.strokeStyle = INK; ctx.lineWidth = Math.max(1, z); ctx.beginPath(); ctx.moveTo(s.x, y - r); ctx.lineTo(s.x + r * wobble, y); ctx.lineTo(s.x, y + r); ctx.lineTo(s.x - r * wobble, y); ctx.closePath(); ctx.stroke(); }); }
   for (const hit of recent) splat(ctx, s.x, s.y - rect.h / 2, hit.damage, z, (now - hit.at) / 1100);
   void game;
 }
@@ -3706,6 +3725,7 @@ export function renderMinimap(ctx: CanvasRenderingContext2D, game: Game, size: n
   for (const entry of game.ground) dot(entry.x, entry.y, "#e0463c", 1);
   for (const npc of game.npcs) if (!npc.drawn) dot(npc.x, npc.y, "#f5e04a", 1.3);
   for (const monster of game.monsters) if (!monster.dead) dot(monster.x, monster.y, "#f5e04a", 1.3);
+  if (game.player.trail && game.player.trail.until > game.tick) for (const monster of game.monsters) if (!monster.dead && monster.def.id === game.player.trail.id) dot(monster.x, monster.y, "#e0533c", 2.2);
   if (game.pet) dot(game.pet.x, game.pet.y, "#ffffff", 1.3);
   if (guideTarget) dot(guideTarget.x, guideTarget.y, "#f2d56b", 2.2);
   // Other players: white, friends green.

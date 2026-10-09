@@ -12,7 +12,7 @@ export type Skill = typeof SKILLS[number];
 export const SKILL_NAMES: Record<Skill, string> = {
   attack: "Attack", strength: "Strength", defence: "Defence", ranged: "Ranged", hitpoints: "Hitpoints", magic: "Magic", prayer: "Faith",
   woodcutting: "Woodcutting", fishing: "Fishing", cooking: "Cooking", firemaking: "Firemaking", mining: "Mining",
-  smithing: "Smithing", crafting: "Craftwork", thieving: "Stealth", agility: "Wayfaring", slayer: "Slayer",
+  smithing: "Smithing", crafting: "Craftwork", thieving: "Stealth", agility: "Wayfaring", slayer: "Pursuance",
   sigilcraft: "Sigilcraft", fletching: "Fletching", apothecary: "Apothecary", presence: "Presence",
 };
 /** Each skill's colour: its mastery cape, and its trim. */
@@ -26,7 +26,7 @@ export const SKILL_COLORS: Record<Skill, [string, string]> = {
 /** Small glyphs for XP drops and the skills tab (drawn as text). */
 export const SKILL_ICONS: Record<Skill, string> = {
   attack: "⚔", strength: "✊", defence: "⛨", hitpoints: "♥", magic: "✦", prayer: "✚", woodcutting: "🪓", fishing: "🐟",
-  cooking: "🍳", firemaking: "🔥", mining: "⛏", smithing: "⚒", crafting: "✂", thieving: "👣", agility: "➶", ranged: "➹", slayer: "☠", sigilcraft: "◈", fletching: "➴", apothecary: "⚗", presence: "✧",
+  cooking: "🍳", firemaking: "🔥", mining: "⛏", smithing: "⚒", crafting: "✂", thieving: "👣", agility: "➶", ranged: "➹", slayer: "⌖", sigilcraft: "◈", fletching: "➴", apothecary: "⚗", presence: "✧",
 };
 export const MAX_LEVEL = 99;
 /** The classic old-school curve: XP needed for each level, index = level. */
@@ -614,7 +614,7 @@ const RANGED_GEAR: Item[] = [
   { id: "wayfarer_hood", name: "Wayfarer's hood", examine: "A light hood that keeps the wind out of your eyes. +10% Wayfaring XP.", value: 3000, tradeable: false, icon: { shape: "hood", color: "#7a8a9a", accent: "#e8e5de" }, equip: { slot: "head", bonuses: { defence: 3 }, requires: { agility: 40 } } },
   { id: "wayfarer_cape", name: "Wayfarer's cape", examine: "A short travelling cape. Running drains 20% less energy; with the whole outfit, 40%, and laps pay double marks.", value: 4000, tradeable: false, icon: { shape: "cape", color: "#7a8a9a", accent: "#e8e5de" }, equip: { slot: "cape", bonuses: { defence: 3 }, requires: { agility: 50 } } },
   // The Warden's bracers (a Slayer reward): more Slayer XP on task.
-  { id: "warden_bracers", name: "Warden's bracers", examine: "Dark leather bracers stamped with the Warden's mark. +10% Slayer XP on task.", value: 15000, tradeable: false, icon: { shape: "bracer", color: "#3b3a38", accent: "#cf6e6e" }, equip: { slot: "hands", bonuses: { attack: 2, ranged: 2, defence: 3 }, requires: { slayer: 30 } } },
+  { id: "warden_bracers", name: "Warden's bracers", examine: "Dark leather bracers stamped with the Warden's mark. +10% Pursuance XP on contracts.", value: 15000, tradeable: false, icon: { shape: "bracer", color: "#3b3a38", accent: "#cf6e6e" }, equip: { slot: "hands", bonuses: { attack: 2, ranged: 2, defence: 3 }, requires: { slayer: 30 } } },
   // The ossuary bag (the Dawn Vigil's reward): carried in your pack, it holds 60 bones of any kind, catches the bones you pick up, and an altar takes them all at once.
   { id: "bone_bag", name: "Ossuary bag", examine: "A linen bag blessed by the Order of the Dawn. Worn on the back or carried, it holds 60 bones of any kind, catches the bones you pick up, and an altar takes every one at once (pray at one while wearing it).", value: 1200, tradeable: false,
     icon: { shape: "satchel", color: "#d8cdb6", accent: "#f2efe8", kind: "bones" }, equip: { slot: "cape", bonuses: { prayer: 2 } } },
@@ -646,7 +646,8 @@ const RANGED_GEAR: Item[] = [
 // ---------- Slayer, mastery capes, tablets and lamps ----------
 const MASTERY_BONUS: Partial<Bonuses> = { attack: 4, strength: 4, defence: 9, ranged: 4, magic: 4, prayer: 4 };
 const OTHER_ITEMS: Item[] = [
-  { id: "slayer_gem", name: "Warden's gem", examine: "Tells you your Slayer task when you look into it.", value: 1, icon: { shape: "gem", color: "#6d8a8f", accent: "#161616" } },
+  { id: "slayer_gem", name: "Warden's gem", examine: "Tells you your Pursuance contract when you look into it.", value: 1, icon: { shape: "gem", color: "#6d8a8f", accent: "#161616" } },
+  { id: "hunters_trophy", name: "Hunter's trophy", examine: "Taken from a marked creature: proof you tracked down one of the Realm's worst. Warden Thistle pays points for these.", value: 450, stackable: true, icon: { shape: "trophy", color: "#c9a84a", accent: "#7a5a2a" } },
   { id: "slayer_helm", name: "Warden's helm", examine: "A dark helm that knows your task. +15% accuracy and damage on it.", value: 12000, tradeable: false,
     icon: { shape: "helm", color: "#3b3a38", accent: "#cf6e6e" }, equip: { slot: "head", bonuses: { defence: 12, ranged: 3, magic: 3 }, requires: { defence: 10, slayer: 20 } } },
   ...SKILLS.flatMap(skill => [false, true].map(trimmed => ({
@@ -1315,7 +1316,7 @@ export const MONSTERS: Record<string, MonsterDef> = {
 };
 Object.assign(MONSTERS, {
   mire_crawler: { id: "mire_crawler", name: "Mire crawler", level: 18, hp: 26, attack: 16, strength: 15, defence: 14, attackBonus: 10, defenceBonus: 10, maxHit: 3, speed: 4, respawn: 30, wander: 4, slayer: 10,
-    examine: "Something with too many legs, living under the Murkmire mud. Only a Slayer knows where to hit it.", aggressive: true,
+    examine: "Something with too many legs, living under the Murkmire mud. Only a seasoned pursuer knows where to hit it.", aggressive: true,
     always: [one("bones", 1)], drops: [coins(10, 60, 0.5), one("bloom_sigil", 0.1, 2, 5), one("blackiron_arrow", 0.15, 8, 20), one("rough_sagestone", 0.03), one("oak_bow", 0.03)], art: 106, ink: "#3d4a36" },
   frost_wisp: { id: "frost_wisp", name: "Frost wisp", level: 36, hp: 44, attack: 30, strength: 28, defence: 30, magicDef: 18, attackBonus: 18, defenceBonus: 22, maxHit: 5, speed: 4, respawn: 35, wander: 5, slayer: 30,
     examine: "A shiver with a face. Blows straight through anyone who hasn't learnt the trick of it.", aggressive: true,
@@ -1470,12 +1471,12 @@ export const SLAYER_TASKS = [
 export type SlayerTask = typeof SLAYER_TASKS[number];
 /** What Slayer points buy from the Warden. */
 export const SLAYER_REWARDS = [
-  { id: "skip", name: "Cancel my task", cost: 30, text: "A new task, and your streak stays." },
-  { id: "slayer_helm", name: "Warden's helm", cost: 150, text: "+15% accuracy and damage on task (Slayer 20, Defence 10)." },
+  { id: "skip", name: "Cancel my contract", cost: 30, text: "A new contract, and your streak stays." },
+  { id: "slayer_helm", name: "Warden's helm", cost: 150, text: "+15% accuracy and damage on contracts (Pursuance 20, Defence 10)." },
   { id: "gloomfang_bow", name: "Gloomfang bow", cost: 600, text: "The Warden's own bow (Ranged 60)." },
   { id: "insight_lamp", name: "Lamp of insight", cost: 100, text: "Experience in a skill of your choice." },
-  { id: "warden_bracers", name: "Warden's bracers", cost: 250, text: "+10% Slayer XP on task (Slayer 30)." },
-  { id: "long", name: "Longer tasks", cost: 100, text: "Tasks half as long again, and they pay half as many points again. Buy it again to turn it off." },
+  { id: "warden_bracers", name: "Warden's bracers", cost: 250, text: "+10% Pursuance XP on contracts (Pursuance 30)." },
+  { id: "long", name: "Longer contracts", cost: 100, text: "Contracts half as long again, and they pay half as many points again. Buy it again to turn it off." },
 ] as const;
 
 // ---------- NPCs, shops ----------
@@ -1695,7 +1696,7 @@ export const RF_BUNDLES = [
   { id: "traveller", name: "Traveller's satchel", caskets: 1, text: "Two of every Realm tablet: break one to travel to Friendhollow, Emberforge, the Oasis, Frostpeak or the Pier." },
   { id: "hamper", name: "Hero's hamper", caskets: 1, text: "Ten inksharks and five cakes, for the Hollow Depths." },
   { id: "insight", name: "Lamp of insight", caskets: 2, text: "Rub it for experience in a skill of your choice (100 × your level)." },
-  { id: "contract", name: "Slayer's contract", caskets: 2, text: "40 Slayer points from the Warden." },
+  { id: "contract", name: "Pursuer's contract", caskets: 2, text: "40 Pursuance points from the Warden." },
   { id: "archer", name: "Archer's quiver", caskets: 2, text: "A maple bow and 300 moonsilver arrows." },
   { id: "tailor", name: "Tailor's pick", caskets: 3, text: "Choose any wardrobe piece up to Moonlit tier, straight onto your Friend." },
   { id: "sigils", name: "Sigil sack", caskets: 1, text: "300 each of breeze, tide, stone, ember and thought sigils, and 30 hollow sigils." },

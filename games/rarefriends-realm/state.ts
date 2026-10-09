@@ -145,10 +145,18 @@ export type Monster = {
   curses: Partial<Record<"attack" | "strength" | "defence" | "bound", number>>;
   /** Weapon poison on it: doses left, and ticks to the next. */
   poison?: { damage: number; left: number; timer: number } | null;
+  /** Another creature it's fighting (the Realm's wars: skirmish.ts), by uid. */
+  foe?: number | null;
+  /** A soldier's fighting self: the soldier's own uid, and how long it has stood with nothing to fight. */
+  twinOf?: number; idle?: number;
+  /** Done fighting: put back as the soldier after this tick. */
+  sheathe?: boolean;
   /** Summoned for a match in the Rare Friends Ring: it hunts you from the start and never comes back. */
   arena?: boolean;
 };
-export type Npc = { uid: number; id: string; x: number; y: number; prev: Point; spawn: Point; wander: number; heading: Point; moved: number; busy: number };
+export type Npc = { uid: number; id: string; x: number; y: number; prev: Point; spawn: Point; wander: number; heading: Point; moved: number; busy: number;
+  /** A soldier fighting: the uid of its fighting self (skirmish.ts), while it's out; the soldier itself is put away meanwhile. */
+  drawn?: number | null };
 /** An item on the ground. `shared` ones (dropped from your pack) other players see and may pick up. */
 export type GroundItem = { uid: number; id: string; n: number; x: number; y: number; expires: number; shared?: boolean; rare?: boolean };
 export type Fire = { uid: number; x: number; y: number; expires: number };

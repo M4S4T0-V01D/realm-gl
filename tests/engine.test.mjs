@@ -120,7 +120,8 @@ test("the world is large, deterministic and every landmark is reachable on foot"
     assert(ok(spawn.x, spawn.y) || [[0, 1], [1, 0], [0, -1], [-1, 0]].some(([dx, dy]) => ok(spawn.x + dx, spawn.y + dy)), `NPC ${spawn.id} at ${spawn.x},${spawn.y}`);
   }
   for (const id of Object.keys(NPCS)) assert(world.spawns.some(spawn => spawn.kind === "npc" && spawn.id === id), `NPC ${id} is placed`);
-  for (const id of Object.keys(MONSTERS).filter(id => !MONSTERS[id].worldBoss && !MONSTERS[id].arenaOnly)) assert(world.spawns.some(spawn => spawn.kind === "monster" && spawn.id === id), `Monster ${id} is placed`);
+  // (A soldier's fighting self isn't placed: it comes out of the soldier, who is.)
+  for (const id of Object.keys(MONSTERS).filter(id => !MONSTERS[id].worldBoss && !MONSTERS[id].arenaOnly && !MONSTERS[id].look)) assert(world.spawns.some(spawn => spawn.kind === "monster" && spawn.id === id), `Monster ${id} is placed`);
   for (const region of REGIONS) if (region.id !== "coast") assert(world.region.includes(REGIONS.indexOf(region)), `${region.name} exists`);
   assert.equal(regionAt(world, world.places.spawn.x, world.places.spawn.y).id, "friendhollow");
   // The throne room lies behind the Hollow gate: the king is reachable from its far side.

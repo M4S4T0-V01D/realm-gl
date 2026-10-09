@@ -66,6 +66,7 @@ export const FAMILY_PERKS: readonly FamilyPerk[] = [
 import { APOTHECARY_ITEMS, type PotionEffect } from "./apothecary.ts";
 import { ORDER_IDS, orderGear, orderStock } from "./knights.ts";
 import { FACTION_MONSTERS, factionGear } from "./factions.ts";
+import { SOLDIERS } from "./skirmish.ts";
 // ---------- Items ----------
 export type EquipSlot = "head" | "cape" | "neck" | "weapon" | "body" | "shield" | "legs" | "hands" | "feet" | "belt" | "ring";
 export const EQUIP_SLOTS: readonly EquipSlot[] = ["head", "cape", "neck", "weapon", "body", "shield", "legs", "hands", "feet", "belt", "ring"];
@@ -1259,12 +1260,18 @@ export type MonsterDef = {
   arenaOnly?: boolean;
   /** A people, not a beast: hostile until their quest is done, then at peace with you (and not to be attacked). */
   faction?: string;
+  /** A soldier's fighting self: drawn in that NPC's own looks (skirmish.ts). */
+  look?: string;
+  /** The side it fights for in the Realm's wars, where that isn't plain from the rest (skirmish.ts). */
+  side?: import("./skirmish.ts").Side;
 };
 const coins = (min: number, max: number, chance: number): Drop => ({ item: "coins", min, max, chance });
 const one = (id: string, chance: number, min = 1, max = min): Drop => ({ item: id, min, max, chance });
 export const MONSTERS: Record<string, MonsterDef> = {
   // Return of Raria: the Regiment, the Federation's pickets, the Royal Rangers, BarkReach's wild things, the deserters and the Burned.
   ...FACTION_MONSTERS,
+  // Every soldier's fighting self, for when it draws steel (skirmish.ts).
+  ...SOLDIERS,
   chicken: { id: "chicken", name: "Chicken", level: 1, hp: 3, attack: 1, strength: 1, defence: 1, attackBonus: 0, defenceBonus: 0, maxHit: 1, speed: 4, respawn: 20, wander: 4, examine: "Yep, definitely a chicken.",
     always: [one("bones", 1), one("raw_chicken", 1)], drops: [one("feather", 0.6, 5, 15)], art: 100 },
   cow: { id: "cow", name: "Cow", level: 2, hp: 8, attack: 1, strength: 1, defence: 1, attackBonus: 0, defenceBonus: 0, maxHit: 1, speed: 4, respawn: 25, wander: 5, examine: "Converts grass to beef.",

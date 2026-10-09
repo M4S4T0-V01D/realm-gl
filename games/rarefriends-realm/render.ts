@@ -2511,6 +2511,7 @@ export function renderScene(target: CanvasRenderingContext2D, scene: Scene) {
   });
   // NPCs.
   for (const npc of game.npcs) {
+    if (npc.drawn) continue;
     if (!shown(npc.x, npc.y)) continue;
     const at = interpolate(npc, game, alpha);
     drawables.push({ depth: depth(at.x, at.y) + 0.1, at, cast: true, sprite: true, size: [170, 90, 30], tag: "npc", draw: () => drawNpc(ctx, scene, npc, at, hits) });
@@ -3382,22 +3383,26 @@ function drawNpc(ctx: CanvasRenderingContext2D, scene: Scene, npc: Npc, at: { x:
     hits.push({ ...rect, pick: { kind: "npc", id: npc.uid } });
     return;
   }
-  if ("canonical" in def.art) {
-    const sprites = scene.canonical.get(def.art.canonical);
-    rect = sprites ? drawMask(ctx, friendRows(sprites, screenFacing(camera, npc.heading), at.moving, at.moving ? Math.floor(now / 90) % 8 : 0), s.x, s.y + 2 * z, 2.8 * z) : drawMask(ctx, friendSprite(5, 1).idle, s.x, s.y + 2 * z, 2.8 * z);
-  } else {
-    const set = friendSprite(def.art.family, def.art.seed + (npc.id === "villager" || npc.id.endsWith("_villager") || npc.id === "banker" || npc.id === "guard" ? npc.uid : 0));
-    const frame = at.moving && Math.floor(now / 160) % 2 ? set.step : set.idle, bob = !scene.reducedMotion && def.art.family === 5 ? Math.sin(now / 400 + npc.uid) * 2 * z : 0;
-    const regalia = npc.id === "villager" ? citizenLook(npc.uid) : npc.id.endsWith("_villager") ? regionalLook(npc.id.slice(0, -9), npc.uid) : NPC_WEAR[npc.id];
-    // The King wears his crown and cape, and the guards their helms, red capes and battleaxes, like your own gear.
-    if (regalia) rect = drawFigure(ctx, figureArt(frame, regalia, screenFacing(camera, npc.heading), scene.reducedMotion ? 0 : Math.floor(now / 520) % 4), s.x, s.y + 2 * z - bob, 2.6 * z);
-    else rect = drawMask(ctx, frame, s.x, s.y + 2 * z - bob, 2.6 * z, INK, screenFacing(camera, npc.heading) === "left");
-  }
+  rect = personFigure(ctx, scene, npc.id, npc.uid, npc.heading, at);
   hits.push({ ...rect, pick: { kind: "npc", id: npc.uid } });
   const questMarker = questMarkerFor(game, npc.id);
   if (questMarker) { const bob = scene.reducedMotion ? 0 : Math.sin(now / 300) * 2 * z; ui(ctx, ctx => poly(ctx, [[s.x - 5 * z, s.y - 58 * z + bob], [s.x + 5 * z, s.y - 58 * z + bob], [s.x, s.y - 50 * z + bob]], questMarker)); }
   const said = npcOverhead(game, npc.uid);
   if (said) overheadText(ctx, said, s.x, s.y - 50 * z, "#f2e28f");
+}
+/** A person as the NPC `id` looks (its art and what it wears), standing at `at`: an NPC, or a soldier's fighting self. */
+function personFigure(ctx: CanvasRenderingContext2D, scene: Scene, id: string, uid: number, heading: { x: number; y: number }, at: { x: number; y: number; moving: boolean }) {
+  const { camera, now } = scene, z = camera.zoom, s = toScreen(camera, at.x, at.y), def = NPCS[id];
+  if ("canonical" in def.art) {
+    const sprites = scene.canonical.get(def.art.canonical);
+    return sprites ? drawMask(ctx, friendRows(sprites, screenFacing(camera, heading), at.moving, at.moving ? Math.floor(now / 90) % 8 : 0), s.x, s.y + 2 * z, 2.8 * z) : drawMask(ctx, friendSprite(5, 1).idle, s.x, s.y + 2 * z, 2.8 * z);
+  }
+  const set = friendSprite(def.art.family, def.art.seed + (id === "villager" || id.endsWith("_villager") || id === "banker" || id === "guard" ? uid : 0));
+  const frame = at.moving && Math.floor(now / 160) % 2 ? set.step : set.idle, bob = !scene.reducedMotion && def.art.family === 5 ? Math.sin(now / 400 + uid) * 2 * z : 0;
+  const regalia = id === "villager" ? citizenLook(uid) : id.endsWith("_villager") ? regionalLook(id.slice(0, -9), uid) : NPC_WEAR[id];
+  // The King wears his crown and cape, and the guards their helms, red capes and battleaxes, like your own gear.
+  if (regalia) return drawFigure(ctx, figureArt(frame, regalia, screenFacing(camera, heading), scene.reducedMotion ? 0 : Math.floor(now / 520) % 4), s.x, s.y + 2 * z - bob, 2.6 * z);
+  return drawMask(ctx, frame, s.x, s.y + 2 * z - bob, 2.6 * z, INK, screenFacing(camera, heading) === "left");
 }
 /** What some NPCs wear, composited into their sprite like your own gear: the King's regalia, and the guards' helms, battleaxes and red capes. */
 const NPC_WEAR: Record<string, readonly string[]> = {
@@ -3608,7 +3613,7 @@ function drawMonster(ctx: CanvasRenderingContext2D, scene: Scene, monster: Monst
   const facing = screenFacing(camera, monster.heading), faceLeft = FACES_LEFT.has(monster.def.art), mirror = faceLeft ? facing === "right" || facing === "down" : facing === "left" || facing === "up";
   if (monster.def.boss && !scene.reducedMotion) { const pulse = 1 + Math.sin(now / 300) * 0.08; ellipse(ctx, s.x, s.y - 40 * z, 48 * z * pulse, 36 * z * pulse, "rgba(20,20,30,0.25)", null); }
   const hover = monster.def.id === "shade" || monster.def.id === "hollow_king" ? Math.sin(now / 350 + monster.uid) * 3 * z : 0;
-  const rect = drawMask(ctx, frame, s.x, s.y + 2 * z - hover, px, monster.def.ink ?? INK, mirror);
+  const rect = monster.def.look ? personFigure(ctx, scene, monster.def.look, monster.twinOf ?? monster.uid, monster.heading, at) : drawMask(ctx, frame, s.x, s.y + 2 * z - hover, px, monster.def.ink ?? INK, mirror);
   hits.push({ ...rect, pick: { kind: "monster", id: monster.uid } });
   const recent = scene.hits.filter(entry => entry.on === "monster" && entry.uid === monster.uid && now - entry.at < 1100);
   // Health and level show while it's fighting: attacking you, your target, in another player's fight, or hit lately.
@@ -3699,7 +3704,7 @@ export function renderMinimap(ctx: CanvasRenderingContext2D, game: Game, size: n
     ctx.fillStyle = color; ctx.fillRect(x + 0.5 - r / 2, y + 0.5 - r / 2, r, r);
   };
   for (const entry of game.ground) dot(entry.x, entry.y, "#e0463c", 1);
-  for (const npc of game.npcs) dot(npc.x, npc.y, "#f5e04a", 1.3);
+  for (const npc of game.npcs) if (!npc.drawn) dot(npc.x, npc.y, "#f5e04a", 1.3);
   for (const monster of game.monsters) if (!monster.dead) dot(monster.x, monster.y, "#f5e04a", 1.3);
   if (game.pet) dot(game.pet.x, game.pet.y, "#ffffff", 1.3);
   if (guideTarget) dot(guideTarget.x, guideTarget.y, "#f2d56b", 2.2);

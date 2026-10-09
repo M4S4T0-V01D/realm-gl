@@ -23,6 +23,7 @@ import { presenceXp, cleanName, cleanTag, onAchievement as presenceAchievement, 
 import { NPCS, QUESTS, readJobBoard, consecrateDawnstone, onAltarPrayed, examineItem, npcDef, onBonesOffered, onMonsterKilled, questDone, searchWell, shopProblem, talk, tanHides, useCryptAltar } from "./content.ts";
 import { onWestTick, westTruce } from "./raria.ts";
 import { codexTick } from "./codex.ts";
+import { SOLDIERLY, SOLDIERS, TWIN_BASE, hostile, sideOf } from "./skirmish.ts";
 import {
   BANK_SIZE, BANK_TABS, DAY_MS, SATCHEL, SATCHEL_SIZE, STONE_BOX, STONE_BOX_SIZE, BONE_BAG, BONE_BAG_SIZE, bagAdd, bagBones, bagTakeAll, hasBoneBag, SIGIL_BAG, BELTS, beltAdd, beltContents, beltDef, wornBelt, SIGIL_BAG_SIZE, hasSigilBag, isSigil, sigilBagAdd, sigilBagTotal, sigilStock, useSigils, setPieces, wayfarerPieces, fullSlayerSet, heartguardPieces, mixtureOn, compactBankTabs, hasSatchel, hasStoneBox, stock, useUp, INVENTORY_SIZE, REFERRAL_COINS, REFERRALS_PER_DAY, REFERRAL_TICKS, addXp, attackSpeed, bonuses, canHold, count, dropItem, emit, freeSlots, give, giveOrDrop, has, hasTool, isStaffEquipped,
   level, maxHp, maxPrayer, message, prayerBoost, riding, sound, take, weapon, combatLevel, createGame,
@@ -122,7 +123,7 @@ function adjacentTo(x: number, y: number, tx: number, ty: number, size = 1) {
 }
 const chebyshev = (a: Point, b: Point) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 export const monsterByUid = (game: Game, uid: number) => game.monsters.find(monster => monster.uid === uid && !monster.dead) ?? null;
-export const npcByUid = (game: Game, uid: number) => game.npcs.find(npc => npc.uid === uid) ?? null;
+export const npcByUid = (game: Game, uid: number) => game.npcs.find(npc => npc.uid === uid && !npc.drawn) ?? null;
 function targetPoint(game: Game, target: Target): (Point & { size?: number; object?: WorldObject }) | null {
   switch (target.kind) {
     case "object": { const object = game.world.objects[target.id]; return object ? { x: object.x, y: object.y, object } : null; }
@@ -234,6 +235,9 @@ export function menuFor(game: Game, picks: readonly Pick[], tile: Point | null, 
       if (spell) continue;
       if (used && selection?.kind === "item") { out.push({ verb: useLabel!, noun: def.name, tone: "npc", run: g => setTarget(g, { kind: "npc", uid: npc.uid, option: "Use", use: selection.slot }) }); continue; }
       for (const option of def.options) out.push({ verb: option, noun: def.name, tone: "npc", run: g => setTarget(g, { kind: "npc", uid: npc.uid, option }) });
+      // Every soldier can be fought: it draws steel, and its comrades with it.
+      const soldier = SOLDIERS[npc.id];
+      if (soldier) out.push({ verb: "Attack", noun: `${def.name}  (level-${soldier.level})`, tone: "npc", run: g => attackSoldier(g, npc.uid) });
       out.push({ verb: "Examine", noun: def.name, tone: "npc", run: g => message(g, def.examine) });
     } else if (pick.kind === "object") {
       const object = game.world.objects[pick.id];
@@ -1175,8 +1179,10 @@ export function tick(game: Game) {
   }
   runActivity(game);
   playerCombat(game);
+  skirmishScan(game);
   for (const monster of game.monsters) monsterTick(game, monster);
-  for (const npc of game.npcs) npcTick(game, npc);
+  for (const twin of game.monsters.filter(monster => monster.sheathe)) sheathe(game, twin);
+  for (const npc of game.npcs) if (!npc.drawn) npcTick(game, npc);
   upkeep(game);
 }
 function movePlayer(game: Game) {
@@ -1531,6 +1537,7 @@ function playerCombat(game: Game) {
     addXp(game, "thieving", Math.round(8 + monster.def.level * 0.5));
     message(game, `You strike the ${monster.def.name.toLowerCase()} from the shadows!`);
   }
+  if (!monster.target) rally(game, monster);
   monster.target = true;
   if (!spell && range) { rangedAttack(game, monster, boost); return; }
   if (spell) {
@@ -1717,6 +1724,8 @@ function monsterTick(game: Game, monster: Monster) {
   if (monster.dead) {
     game.sneakingPast.delete(monster.uid);
     if (monster.arena) return;
+    // A fallen soldier is back at its post when its time comes round.
+    if (monster.twinOf !== undefined) { if (game.tick >= monster.respawnAt) monster.sheathe = true; return; }
     if (game.tick >= monster.respawnAt) {
       monster.dead = false; monster.hp = monster.def.hp; monster.curses = {}; monster.bornAt = game.tick; monster.x = monster.spawn.x; monster.y = monster.spawn.y; monster.prev = { ...monster.spawn }; monster.target = false;
     }
@@ -1741,6 +1750,7 @@ function monsterTick(game: Game, monster: Monster) {
   // It mends itself while it's hurt (the Archivist Below reads itself whole again).
   if (monster.def.heals && monster.hp < monster.def.hp / 2 && game.tick % 5 === 0) monster.hp = Math.min(monster.def.hp, monster.hp + monster.def.heals);
   if (monster.target) {
+    monster.idle = 0;
     const leash = Math.max(Math.abs(monster.x - monster.spawn.x), Math.abs(monster.y - monster.spawn.y));
     if (!monster.arena && (!sameLayer || leash > monster.wander + 12 || chebyshev(monster, player) > 16)) { monster.target = false; monster.retreat = 6; return; }
     // An archer shoots from where it stands once you're in its range; everything else closes in.
@@ -1780,12 +1790,127 @@ function monsterTick(game: Game, monster: Monster) {
     stepMonsterToward(game, monster, player);
     return;
   }
+  // Another creature to fight (the Realm's wars).
+  if (monster.foe != null && foeFight(game, monster)) return;
+  // A soldier with nothing left to fight puts its steel away.
+  if (monster.twinOf !== undefined && ++monster.idle! >= 15) { monster.sheathe = true; return; }
   // Idle wandering.
   if (monster.retreat > 0) { monster.retreat--; stepMonsterToward(game, monster, monster.spawn); return; }
   if (game.rng() < 0.12 && !isBound(game, monster)) {
     const dx = Math.floor(game.rng() * 3) - 1, dy = Math.floor(game.rng() * 3) - 1, nx = monster.x + dx, ny = monster.y + dy;
     if (Math.abs(nx - monster.spawn.x) <= monster.wander && Math.abs(ny - monster.spawn.y) <= monster.wander && monsterCanStep(game, monster, dx, dy)) moveMonster(game, monster, nx, ny);
   }
+}
+// ---------- The Realm's wars: soldiers, their twins, and creatures fighting creatures (skirmish.ts) ----------
+const onLayer = (game: Game, a: Monster | Npc, b: Monster | Npc) => isUnderground(a.spawn.y) === isUnderground(b.spawn.y) && realPoint(game.world, a.spawn.x, a.spawn.y).level === realPoint(game.world, b.spawn.x, b.spawn.y).level;
+/** Only what happens near you makes a sound or a mark (far battles would drown out everything else). */
+const nearYou = (game: Game, at: Point) => chebyshev(at, game.player) <= 18;
+/** A soldier draws steel: its fighting self comes out where it stands, and the soldier is put away until it's done. */
+export function drawSteel(game: Game, npc: Npc): Monster | null {
+  const def = SOLDIERS[npc.id];
+  if (!def) return null;
+  const uid = TWIN_BASE + npc.uid, out = game.monsters.find(monster => monster.uid === uid);
+  if (out) return out.dead ? null : out;
+  const at = { x: npc.x, y: npc.y };
+  const twin: Monster = { uid, def, x: at.x, y: at.y, prev: { ...at }, spawn: { ...npc.spawn }, hp: def.hp, heading: { ...npc.heading }, target: false, attackTimer: 2, respawnAt: 0, dead: false,
+    wander: Math.max(4, npc.wander), moved: 0, retreat: 0, curses: {}, twinOf: npc.uid, idle: 0, bornAt: game.tick, foe: null };
+  game.monsters.push(twin); npc.drawn = uid;
+  return twin;
+}
+/** The fight's over (or it fell and its time has come round): the soldier is back, where it stood or at its post. */
+function sheathe(game: Game, twin: Monster) {
+  const index = game.monsters.indexOf(twin);
+  if (index >= 0) game.monsters.splice(index, 1);
+  if (game.player.combat === twin.uid) { game.player.combat = null; game.player.queuedSpell = null; }
+  game.sneakingPast.delete(twin.uid);
+  for (const monster of game.monsters) if (monster.foe === twin.uid) monster.foe = null;
+  const npc = game.npcs.find(entry => entry.uid === twin.twinOf);
+  if (!npc) return;
+  npc.drawn = null;
+  const home = !twin.dead && Math.max(Math.abs(twin.x - npc.spawn.x), Math.abs(twin.y - npc.spawn.y)) <= npc.wander;
+  const at = home ? { x: twin.x, y: twin.y } : npc.spawn;
+  npc.prev = { ...at }; npc.x = at.x; npc.y = at.y; npc.heading = { ...twin.heading }; npc.moved = game.tick;
+}
+/** You draw on a soldier: it draws on you, and so do its comrades nearby. */
+function attackSoldier(game: Game, uid: number) {
+  const npc = npcByUid(game, uid);
+  if (!npc) return;
+  const twin = drawSteel(game, npc);
+  if (twin) setTarget(game, { kind: "monster", uid: twin.uid, option: "Attack" });
+}
+/** The soldiers of a side near one you've struck take up the fight against you. */
+function rally(game: Game, struck: Monster) {
+  const side = sideOf(struck.def);
+  if (!side || !SOLDIERLY.has(side)) return;
+  for (const npc of game.npcs) {
+    if (npc.drawn || SOLDIERS[npc.id]?.side !== side || chebyshev(npc, struck) > 7 || !onLayer(game, npc, struck)) continue;
+    const twin = drawSteel(game, npc);
+    if (twin) { twin.target = true; twin.foe = null; }
+  }
+  for (const other of game.monsters) if (other !== struck && !other.dead && !other.target && sideOf(other.def) === side && chebyshev(other, struck) <= 7 && onLayer(game, other, struck)) { other.target = true; other.foe = null; }
+}
+/** Soldiers look for a fight among the creatures round them; the wild and the dead go for soldiers that come close. */
+function skirmishScan(game: Game) {
+  const CELL = 8, grid = new Map<number, Monster[]>(), cell = (x: number, y: number) => Math.floor(x / CELL) * 4096 + Math.floor(y / CELL);
+  for (const monster of game.monsters) if (!monster.dead && !monster.arena && sideOf(monster.def)) { const key = cell(monster.x, monster.y); (grid.get(key) ?? grid.set(key, []).get(key)!).push(monster); }
+  const nearest = (at: Point, range: number, fits: (monster: Monster) => boolean) => {
+    let best: Monster | null = null, bestDistance = range + 1;
+    for (let cx = Math.floor((at.x - range) / CELL); cx <= Math.floor((at.x + range) / CELL); cx++) for (let cy = Math.floor((at.y - range) / CELL); cy <= Math.floor((at.y + range) / CELL); cy++) {
+      for (const monster of grid.get(cx * 4096 + cy) ?? []) { const distance = chebyshev(at, monster); if (distance < bestDistance && fits(monster)) { best = monster; bestDistance = distance; } }
+    }
+    return best;
+  };
+  for (const monster of game.monsters) {
+    if (monster.dead || monster.arena || monster.foe != null || monster.target || monster.retreat > 0 || (monster.uid + game.tick) % 3) continue;
+    const side = sideOf(monster.def), range = !side ? 0 : SOLDIERLY.has(side) ? 6 : monster.def.aggressive ? 3 : 0;
+    if (!range) continue;
+    const foe = nearest(monster, range, other => other !== monster && hostile(side, sideOf(other.def)) && (SOLDIERLY.has(side!) || SOLDIERLY.has(sideOf(other.def)!)) && onLayer(game, monster, other));
+    if (foe) { monster.foe = foe.uid; monster.idle = 0; }
+  }
+  for (const npc of game.npcs) {
+    const soldier = SOLDIERS[npc.id];
+    if (!soldier || npc.drawn || (npc.uid + game.tick) % 3) continue;
+    const foe = nearest(npc, 5, other => hostile(soldier.side, sideOf(other.def)) && onLayer(game, npc, other));
+    if (!foe) continue;
+    const twin = drawSteel(game, npc);
+    if (twin) { twin.foe = foe.uid; if (foe.foe == null && !foe.target) foe.foe = twin.uid; }
+  }
+}
+/** Fight the creature it's set on: close in (or shoot), and strike. False when the fight's off. */
+function foeFight(game: Game, monster: Monster): boolean {
+  const foe = game.monsters.find(entry => entry.uid === monster.foe);
+  const leash = Math.max(Math.abs(monster.x - monster.spawn.x), Math.abs(monster.y - monster.spawn.y));
+  if (!foe || foe.dead || chebyshev(monster, foe) > 12 || leash > monster.wander + 10 || !onLayer(game, monster, foe)) { monster.foe = null; monster.retreat = 4; return false; }
+  monster.idle = 0;
+  const reach = monster.def.ranged ?? 0, shooting = reach > 0 && chebyshev(monster, foe) <= reach;
+  if (shooting || adjacentTo(monster.x, monster.y, foe.x, foe.y, footprint(foe))) { if (monster.attackTimer <= 0) strike(game, monster, foe); return true; }
+  stepMonsterToward(game, monster, foe, foe);
+  return true;
+}
+/** One creature's blow on another: the same rolls as against you, magic against magic defence. */
+function strike(game: Game, attacker: Monster, victim: Monster) {
+  const enraged = !!attacker.def.enrage && attacker.hp <= attacker.def.hp / 3, magic = attacker.def.attackStyle === "magic";
+  attacker.attackTimer = Math.max(2, attacker.def.speed - (enraged ? 1 : 0));
+  attacker.heading = headingTo(victim.x - attacker.x, victim.y - attacker.y, attacker.heading);
+  const attack = (attacker.def.attack * cursed(game, attacker, "attack") + 9) * (attacker.def.attackBonus + 64);
+  const defence = ((magic ? victim.def.magicDef ?? victim.def.defence : victim.def.defence) * cursed(game, victim, "defence") + 9) * (victim.def.defenceBonus + 64);
+  const hit = game.rng() < hitChance(attack, defence) ? Math.floor(game.rng() * (Math.floor(attacker.def.maxHit * cursed(game, attacker, "strength") * (enraged ? 1.5 : 1)) + 1)) : -1;
+  const dealt = Math.max(0, Math.min(hit, victim.hp));
+  victim.hp -= dealt;
+  if (nearYou(game, attacker)) {
+    if (magic || !adjacentTo(attacker.x, attacker.y, victim.x, victim.y, footprint(victim)))
+      emit(game, { type: "projectile", projectile: { from: { x: attacker.x, y: attacker.y }, to: { x: victim.x, y: victim.y }, start: game.tick, end: game.tick + 1, color: magic ? "#9fb4d0" : "#8a7a5a", style: magic ? "magic" : "arrow" } });
+    creature(game, attacker, "attack");
+    emit(game, { type: "hit", on: "monster", uid: victim.uid, damage: hit < 0 ? -1 : dealt, tick: game.tick });
+  }
+  // Struck, it turns on whoever struck it (unless it's busy with you).
+  if (!victim.target && victim.foe == null) { victim.foe = attacker.uid; victim.idle = 0; }
+  if (victim.hp > 0) return;
+  // You wounded it, so it's yours whoever finished it; otherwise it simply falls (and leaves nothing).
+  if (victim.mine) { attacker.foe = null; killMonster(game, victim); return; }
+  victim.dead = true; victim.target = false; victim.foe = null; victim.respawnAt = game.tick + victim.def.respawn; attacker.foe = null;
+  if (game.player.combat === victim.uid) { game.player.combat = null; game.player.queuedSpell = null; }
+  if (nearYou(game, victim)) creature(game, victim, "death");
 }
 function monsterCanStep(game: Game, monster: Monster, dx: number, dy: number) {
   const size = footprint(monster);
@@ -1822,7 +1947,7 @@ function cursed(game: Game, monster: Monster, stat: "attack" | "strength" | "def
   return 1 - (SPELLS.find(spell => spell.curse?.stat === stat)?.curse?.amount ?? 0);
 }
 export const isBound = (game: Game, monster: Monster) => (monster.curses.bound ?? 0) > game.tick;
-function stepMonsterToward(game: Game, monster: Monster, target: Point) {
+function stepMonsterToward(game: Game, monster: Monster, target: Point, avoid?: Monster) {
   if (isBound(game, monster)) return;
   const size = footprint(monster), player = game.player;
   const score = (x: number, y: number) => { const { gx, gy } = gapTo(target, x, y, size); return Math.max(gx, gy) * 10 + Math.min(gx, gy) * 3; };
@@ -1830,6 +1955,7 @@ function stepMonsterToward(game: Game, monster: Monster, target: Point) {
   for (const [dx, dy] of DIRS) {
     const nx = monster.x + dx, ny = monster.y + dy;
     if (gapTo(player, nx, ny, size).inside) continue;
+    if (avoid && reachGap({ x: nx, y: ny }, avoid.x, avoid.y, footprint(avoid)) === 0) continue;
     if (!monsterCanStep(game, monster, dx, dy)) continue;
     const value = score(nx, ny) + (dx && dy ? 1 : 0);
     if (value < bestScore) { bestScore = value; best = [dx, dy]; }
@@ -2076,7 +2202,8 @@ export function currentFight(game: Game) {
  * if it isn't fighting us it walks over to where theirs is. If their hits finish it, it dies here without loot for us.
  */
 export function syncMonster(game: Game, fight: { u: number; id: string; hp: number; x: number; y: number }, by: number) {
-  const monster = game.monsters.find(entry => entry.uid === fight.u && entry.def.id === fight.id);
+  let monster = game.monsters.find(entry => entry.uid === fight.u && entry.def.id === fight.id);
+  if (!monster && fight.u >= TWIN_BASE) { const npc = game.npcs.find(entry => entry.uid === fight.u - TWIN_BASE && SOLDIERS[entry.id]?.id === fight.id); monster = npc ? drawSteel(game, npc) ?? undefined : undefined; }
   if (!monster || monster.dead || game.tick - (monster.bornAt ?? -99) < 8) return;
   if (!monster.target) {
     const far = Math.max(Math.abs(monster.x - fight.x), Math.abs(monster.y - fight.y));
